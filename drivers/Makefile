@@ -9,3 +9,4 @@ obj-m += zio-gpio.o
 ifdef CONFIG_SPI
 obj-m += zio-ad788x.o
 endif
+obj-m += zio-ldisc.o
