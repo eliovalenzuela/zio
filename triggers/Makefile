@@ -1,6 +1,7 @@
 LINUX ?= /lib/modules/$(shell uname -r)/build
 
 EXTRA_CFLAGS += -I$(obj)/../include/
+EXTRA_CFLAGS += -DDEBUG
 
 # zio-trig-user.o is now part of zio-core
 obj-m = zio-trig-timer.o
