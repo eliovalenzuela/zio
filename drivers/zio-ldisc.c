@@ -17,8 +17,8 @@ ZIO_PARAM_TRIGGER(zld_trigger);
 #define ZLD_SSIZE 2
 
 /*
- * We have no concept of driver instance yet. So this is just one instance,
- * and as such it has global data.
+ * We have no concept of driver instance yet, until we have the bus
+ * abstraction implemented. So this is just one instance, with global data
  */
 static struct zio_cset zld_cset[]; /* Declared later, needed in ldisc */
 
@@ -137,30 +137,19 @@ static struct tty_ldisc_ops zld_ldisc = {
 /* This method is called by the trigger */
 static int zld_input(struct zio_cset *cset)
 {
-	unsigned long flags;
-	struct zio_channel *chan;
-	struct zio_block *block;
-	struct zio_device *zdev;
-
-	zdev = cset->zdev;
-
 	return -EAGAIN; /* will call data_done later */
 }
-
-static struct zio_device_operations zld_d_op = {
-	.input_cset =		zld_input,
-};
 
 static struct zio_cset zld_cset[] = {
 	{
 		.n_chan =	ZLD_NCHAN,
 		.ssize =	ZLD_SSIZE,
 		.flags =	ZIO_DIR_INPUT | ZCSET_TYPE_ANALOG,
+		.raw_io =	zld_input,
 	},
 };
 static struct zio_device zld_dev = {
 	.owner =		THIS_MODULE,
-	.d_op =			&zld_d_op,
 	.cset =			zld_cset,
 	.n_cset =		ARRAY_SIZE(zld_cset),
 
