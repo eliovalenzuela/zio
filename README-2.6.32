@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# This is branch "for-linux-2.6.32" of zio. We need to run under 2.6.32
+# as this is the version that we have deployed in the labs.
+#
+# This file is itself executable: if you checkout master you should run
+# this to patch the code...
+
+# there was no spinlock_t but only a typedef
+grep -rl struct.spinlock [a-z]* | xargs sed -i 's/struct.spinlock/spinlock_t/'
+
+# no such thing as this build bug
+sed -i '/BUILD_BUG_ON_NOT_POWER_OF_2/ d' zio-sys.c
+
+# no pr_warn() but pr_warning was there
+sed -i 's/pr_warn(/pr_warning(/' zio-sys.c
