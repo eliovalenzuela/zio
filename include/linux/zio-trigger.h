@@ -11,7 +11,7 @@ struct zio_trigger_type {
 	struct zio_obj_head	head;
 	struct module		*owner;
 	struct list_head	list; /* instances, and list lock */
-	struct spinlock		lock;
+	spinlock_t		lock;
 	unsigned long		flags; /* to be defined */
 
 	const struct zio_sysfs_operations	*s_op;
@@ -32,7 +32,7 @@ struct zio_ti {
 	struct zio_cset		*cset;
 
 	unsigned long		flags;		/* input or output, etc */
-	struct spinlock		lock;
+	spinlock_t		lock;
 	/* This is for software stamping */
 	struct timespec		tstamp;
 	uint64_t tstamp_extra;
