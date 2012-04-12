@@ -2176,8 +2176,6 @@ static int __init zio_init(void)
 	int err;
 
 	/* Some compile-time checks, so developers are free to hack around */
-	BUILD_BUG_ON_NOT_POWER_OF_2(ZIO_CHAN_MAXNUM);
-	BUILD_BUG_ON_NOT_POWER_OF_2(ZIO_CSET_MAXNUM);
 	BUILD_BUG_ON(ZIO_CSET_MAXNUM * ZIO_CHAN_MAXNUM * 2 > MINORMASK);
 	BUILD_BUG_ON(ZATTR_STD_NUM_ZDEV != ARRAY_SIZE(zio_zdev_attr_names));
 	BUILD_BUG_ON(ZATTR_STD_NUM_ZBUF != ARRAY_SIZE(zio_zbuf_attr_names));
@@ -2204,10 +2202,10 @@ static int __init zio_init(void)
 
 	err = zio_default_buffer_init();
 	if (err)
-		pr_warn("%s: cannot register default buffer\n", __func__);
+		pr_warning("%s: cannot register default buffer\n", __func__);
 	err = zio_default_trigger_init();
 	if (err)
-		pr_warn("%s: cannot register default trigger\n", __func__);
+		pr_warning("%s: cannot register default trigger\n", __func__);
 	pr_info("zio-core had been loaded\n");
 	return 0;
 

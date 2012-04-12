@@ -26,7 +26,7 @@ struct zio_buffer_type {
 	struct zio_obj_head	head;
 	struct module		*owner;
 	struct list_head	list; /* instances, and list lock */
-	struct spinlock		lock;
+	spinlock_t		lock;
 	unsigned long		flags;
 
 	const struct zio_sysfs_operations	*s_op;
@@ -69,7 +69,7 @@ struct zio_bi {
 	/* Those using generic_read need this information */
 	unsigned long flags;			/* input or output, etc */
 	wait_queue_head_t q;			/* for reading or writing */
-	struct spinlock		lock;
+	spinlock_t		lock;
 
 	/* Standard and extended attributes for this object */
 	struct zio_attribute_set		zattr_set;
