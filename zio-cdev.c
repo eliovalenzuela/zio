@@ -490,7 +490,7 @@ static int zio_generic_mmap(struct file *f, struct vm_area_struct *vma)
 {
 	struct zio_f_priv *priv = f->private_data;
 	struct zio_bi *bi = priv->chan->bi;
-	const struct vm_operations_struct *v_op = bi->v_op;
+	struct vm_operations_struct *v_op = bi->v_op;
 
 	if (!v_op)
 		return -ENODEV; /* according to man page */
