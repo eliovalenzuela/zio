@@ -1382,7 +1382,7 @@ static int __bi_register(struct zio_buffer_type *zbuf,
 	int err;
 
 	pr_debug("%s\n", __func__);
-	bi->head.dev.init_name = name;
+	dev_set_name(&bi->head.dev, name);
 	/* Create attributes */
 	err = zattr_set_create(&bi->head, zbuf->s_op);
 	if (err)
@@ -1469,7 +1469,7 @@ static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 	int err;
 
 	pr_debug("%s\n", __func__);
-	ti->head.dev.init_name = name;
+	dev_set_name(&ti->head.dev, name);
 	/* Create attributes */
 	err = zattr_set_create(&ti->head, trig->s_op);
 	if (err)
