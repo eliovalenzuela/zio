@@ -4,6 +4,7 @@
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
+#include <linux/zio-compat-24.h>
 
 #define ZIO_DEFAULT_TRIGGER "user"
 
