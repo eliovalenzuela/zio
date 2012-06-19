@@ -33,10 +33,7 @@ static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 	return 0;
 }
-static char *zio_devnode(struct device *dev, mode_t *mode)
-{
-	return kasprintf(GFP_KERNEL, "zio/%s", dev_name(dev));
-}
+
 
 /*
  * zio_cdev_class: don't use class_create to create class, as it doesn't permit
@@ -47,7 +44,6 @@ static struct class zio_cdev_class = {
 	.name		= "zio-cdev",
 	.owner		= THIS_MODULE,
 	.dev_uevent	= zio_dev_uevent,
-	.devnode	= zio_devnode,
 };
 
 /* Retrieve a channel from one of its minors */
