@@ -770,7 +770,7 @@ enum zio_default_attribute_group_enumeration {
 };
 
 /* default zio groups */
-static const struct attribute_group zio_groups[] = {
+static struct attribute_group zio_groups[] = {
 	[ZIO_DAG_ALL] = {	/* group for all zio object*/
 		.attrs = def_obj_attrs_ptr,
 	},
@@ -788,32 +788,32 @@ static const struct attribute_group zio_groups[] = {
 	},
 };
 /* default groups for whole-device */
-static const struct attribute_group *def_zdev_groups_ptr[] = {
+static struct attribute_group *def_zdev_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
 /* default groups for channel set */
-static const struct attribute_group *def_cset_groups_ptr[] = {
+static struct attribute_group *def_cset_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	&zio_groups[ZIO_DAG_CSET],
 	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
 /* default groups for channel */
-static const struct attribute_group *def_chan_groups_ptr[] = {
+static struct attribute_group *def_chan_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	&zio_groups[ZIO_DAG_CHAN],
 	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
 /* default groups for trigger instance */
-static const struct attribute_group *def_ti_groups_ptr[] = {
+static struct attribute_group *def_ti_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
 	NULL,
  };
 /* default groups for buffer instance */
-static const struct attribute_group *def_bi_groups_ptr[] = {
+static struct attribute_group *def_bi_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_BI],
 	NULL,
 };
@@ -919,7 +919,7 @@ int zattr_set_create(struct zio_obj_head *head,
 		     const struct zio_sysfs_operations *s_op)
 {
 	int i, err, a_count, g_count = 0, g = 0;
-	const struct attribute_group **groups;
+	struct attribute_group **groups;
 	struct zio_attribute_set *zattr_set;
 	struct attribute *attr;
 
