@@ -30,6 +30,7 @@
 #include <linux/list.h>
 #include <linux/string.h>
 
+#include <linux/zio-compat-24.h> /* Compatibility for Linux 2.6.24 */
 #include <linux/zio-sysfs.h>
 
 #define ZIO_NR_MINORS  (1<<16) /* Ask for 64k minors: no harm done... */
