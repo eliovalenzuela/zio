@@ -21,7 +21,6 @@ struct zio_status zio_global_status;
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
 static ssize_t zio_show_version(struct class *class,
-			struct class_attribute *attr,
 			char *buf)
 {
 	return sprintf(buf, "%d.%d\n", ZIO_MAJOR_VERSION, ZIO_MINOR_VERSION);
