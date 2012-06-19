@@ -926,7 +926,7 @@ static struct attribute *def_bi_attrs_ptr[] = {
 	NULL,
 };
 /* default zio groups */
-static const struct attribute_group zio_groups[] = {
+static  struct attribute_group zio_groups[] = {
 	{	/* group for all zio object*/
 		.attrs = def_device_attrs_ptr,
 	},
@@ -938,17 +938,17 @@ static const struct attribute_group zio_groups[] = {
 	}
 };
 /* default groups for most of the zio object */
-static const struct attribute_group *def_device_groups_ptr[] = {
+static struct attribute_group *def_device_groups_ptr[] = {
 	&zio_groups[0],	/* group for all zio object*/
 	NULL,
 };
 /* default groups for channel set */
-static const struct attribute_group *def_cset_groups_ptr[] = {
+static struct attribute_group *def_cset_groups_ptr[] = {
 	&zio_groups[0],	/* group for all zio object*/
 	&zio_groups[1],	/* cset only group */
 	NULL,
 };
-static const struct attribute_group *def_bi_groups_ptr[] = {
+static struct attribute_group *def_bi_groups_ptr[] = {
 	&zio_groups[2],	/* bi only group */
 	NULL,
 };
@@ -1231,7 +1231,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 			    const struct zio_sysfs_operations *s_op)
 {
 	int i, err, a_count, g_count = 0, g = 0;
-	const struct attribute_group **groups;
+	struct attribute_group **groups;
 	struct zio_attribute_set *zattr_set;
 	struct attribute *attr;
 
