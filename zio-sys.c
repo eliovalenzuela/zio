@@ -15,6 +15,7 @@
 #include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
+#include <linux/zio-compat-24.h>
 
 #define ZOBJ_SYSFS_NAME "name"
 #define ZOBJ_SYSFS_ENABLE "enable"
