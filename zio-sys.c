@@ -1925,8 +1925,8 @@ static int __zdev_register(struct zio_device *parent,
 	zdev->head.dev.bus = &zio_bus_type;
 	/* Name was verified during zio_register_device */
 	strncpy(zdev->head.name, parent->head.name, ZIO_OBJ_NAME_LEN);
-	pname = dev_name(&parent->head.dev) + 6;
-	dev_set_name(&zdev->head.dev, "zio-%s", pname);
+	pname = dev_name(&parent->head.dev) + 3;
+	dev_set_name(&zdev->head.dev, pname);
 
 	zdev->owner = parent->owner; /* FIXME which owner? */
 	zdev->flags = tmpl->flags;
@@ -2050,10 +2050,10 @@ int zio_register_device(struct zio_device *zdev, const char *name,
 		return n_conflict;
 	strncpy(zdev->head.name, name, ZIO_OBJ_NAME_LEN);
 	if (dev_id == 0)
-		dev_set_name(&zdev->head.dev, "hwdev-%s-%04x",
+		dev_set_name(&zdev->head.dev, "hw-%s-%04x",
 			    zdev->head.name, n_conflict);
 	else
-		dev_set_name(&zdev->head.dev, "hwdev-%s-%04x",
+		dev_set_name(&zdev->head.dev, "hw-%s-%04x",
 			     zdev->head.name, dev_id);
 
 	return device_register(&zdev->head.dev);
