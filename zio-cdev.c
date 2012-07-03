@@ -31,18 +31,6 @@ static struct class_attribute zclass_attrs[] = {
 	__ATTR_NULL,
 };
 
-
-static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	unsigned long *flags ;
-
-	flags = dev_get_drvdata(dev);
-	add_uevent_var(env, "DEVMODE=%#o", (*flags & ZIO_DIR ? 0220 : 0440));
-
-	return 0;
-}
-
-
 /*
  * zio_class: don't use class_create to create class because it doesn't permit
  * to insert a set of class attributes. This structure is the exact
@@ -52,7 +40,6 @@ static struct class zio_class = {
 	.name		= "zio-char-devices",
 	.owner		= THIS_MODULE,
 	.class_attrs	= zclass_attrs,
-	.dev_uevent	= zio_dev_uevent,
 };
 
 /* Retrieve a channel from one of its minors */
