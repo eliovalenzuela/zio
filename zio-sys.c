@@ -2194,6 +2194,7 @@ static int __init zio_init(void)
 	if (err)
 		goto out_cdev;
 
+	spin_lock_init(&zstat->lock);
 	INIT_LIST_HEAD(&zstat->all_devices.list);
 	zstat->all_devices.zobj_type = ZDEV;
 	INIT_LIST_HEAD(&zstat->all_trigger_types.list);
