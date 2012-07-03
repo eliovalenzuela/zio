@@ -22,16 +22,12 @@ static inline const char *dev_name(struct device *dev)
 	return kobject_name(&dev->kobj);
 }
 
-static int dev_set_name(struct device *dev, const char *fmt, ...)
-{
-	int err = 0;
-	va_list vargs;
-
-	va_start(vargs, fmt);
-	err = kobject_set_name(&dev->kobj, fmt, vargs);
-	va_end(vargs);
-	return err;
-}
+#define dev_set_name(dev, fmt, ...)  ({	\
+	int err = 0; \
+	err = kobject_set_name(&(dev)->kobj, fmt, ## __VA_ARGS__); \
+	if (!err) \
+		strncpy((dev)->bus_id, (dev)->kobj.k_name, BUS_ID_SIZE); \
+	err; })
 #endif
 
 /* strict_strtol() appared in v2.6. */
