@@ -24,17 +24,6 @@
 static DEFINE_MUTEX(zmutex);
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
-static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	unsigned long *flags ;
-
-	flags = dev_get_drvdata(dev);
-	add_uevent_var(env, "DEVMODE=%#o", (*flags & ZIO_DIR ? 0220 : 0440));
-
-	return 0;
-}
-
-
 /*
  * zio_cdev_class: don't use class_create to create class, as it doesn't permit
  * to insert a set of class attributes. This structure is the exact
@@ -43,7 +32,6 @@ static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
 static struct class zio_cdev_class = {
 	.name		= "zio-cdev",
 	.owner		= THIS_MODULE,
-	.dev_uevent	= zio_dev_uevent,
 };
 
 /* Retrieve a channel from one of its minors */
