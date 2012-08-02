@@ -7,6 +7,8 @@ HOSTCC ?= gcc
 
 hostprogs-y := zio-dump
 hostprogs-y += zio-cat-file
+hostprogs-y += pfzio-receive
+hostprogs-y += pfzio-send
 
 # The following is ugly, please forgive me by now
 user: $(hostprogs-y)

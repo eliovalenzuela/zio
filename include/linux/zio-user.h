@@ -78,6 +78,10 @@ struct zio_tlv {
 	uint8_t payload[8];
 };
 
+/*The following defines can be used to bind a socket to an entire device or
+ * channel set*/
+#define PFZIO_BIND_ANY		0xFFFF
+
 /*
  * The following data item is the control structure that is being exchanged
  * on the control device associated to each data device. The size of each
