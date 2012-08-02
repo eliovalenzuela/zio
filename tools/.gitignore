@@ -1,3 +1,6 @@
 zio-dump
 zio-cat-file
 test-dtc
+pfzio-receive
+pfzio-send
+

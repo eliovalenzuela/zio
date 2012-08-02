@@ -123,6 +123,10 @@ struct zio_tlv {
 	uint8_t payload[8];
 };
 
+/*The following defines can be used to bind a socket to an entire device or
+ * channel set*/
+#define PFZIO_BIND_ANY		0xFFFF
+
 /*
  * We have at most 8 zio alarms and at most 8 driver alarm. The former
  * group is defined here, the latter group is driver-specific.
