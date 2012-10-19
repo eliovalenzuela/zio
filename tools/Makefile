@@ -10,6 +10,10 @@ progs += test-dtc
 progs += pfzio-receive
 progs += pfzio-send
 
+hostprogs-y += zio-perf-cdev
+hostprogs-y += zio-perf-sock
+
+
 # The following is ugly, please forgive me by now
 user: $(progs)
 

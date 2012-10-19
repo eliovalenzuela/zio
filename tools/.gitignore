@@ -3,4 +3,5 @@ zio-cat-file
 test-dtc
 pfzio-receive
 pfzio-send
-
+zio-perf-cdev
+zio-perf-sock
