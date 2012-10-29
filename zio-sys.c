@@ -164,6 +164,10 @@ void zio_generic_data_done(struct zio_cset *cset)
 		block = chan->active_block;
 		if (!block)
 			continue;
+		/* Copy the stamp */
+		chan->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
+		chan->current_ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
+		chan->current_ctrl->tstamp.bins = ti->tstamp_extra;
 		if (zbuf->b_op->store_block(bi, block)) /* may fail, no prob */
 			zbuf->b_op->free_block(bi, block);
 	}
@@ -204,10 +208,6 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 		 * blocks or other errors in trigger activation.
 		 */
 		chan->current_ctrl->seq_num++;
-		/* Copy the stamp (we are software driven anyways) */
-		chan->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
-		chan->current_ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
-		chan->current_ctrl->tstamp.bins = ti->tstamp_extra;
 		memcpy(ctrl, chan->current_ctrl, ZIO_CONTROL_SIZE);
 
 		block = zbuf->b_op->alloc_block(chan->bi, ctrl,
