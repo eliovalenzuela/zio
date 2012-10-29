@@ -80,6 +80,12 @@ struct zio_bi {
 };
 #define to_zio_bi(obj) container_of(obj, struct zio_bi, head.dev)
 
+/* first 4bit are reserved for zio object universal flags */
+enum zbi_flag_mask {
+	ZBI_PUSHING = 0x10,	/* a push is being performed */
+};
+
+
 /* The block is the basic data item being transferred */
 struct zio_block {
 	unsigned long		ctrl_flags;
