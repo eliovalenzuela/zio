@@ -48,6 +48,11 @@ static DEFINE_ZATTR_STD(ZBUF, zbk_std_zattr) = {
 static int zbk_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
+	struct zio_bi *bi = to_zio_bi(dev);
+
+	/* If somebody is sleeping for write and we increase the size... */
+	wake_up_interruptible(&bi->q);
+
 	return 0;
 }
 struct zio_sysfs_operations zbk_sysfs_ops = {
@@ -144,7 +149,7 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 
 	/* add to the buffer instance or push to the trigger */
 	spin_lock(&bi->lock);
-	if (zbki->nitem == bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
+	if (zbki->nitem >= bi->zattr_set.std_zattr[ZATTR_ZBUF_MAXLEN].value)
 		goto out_unlock;
 	list_add_tail(&item->list, &zbki->list);
 	if (!zbki->nitem) {
