@@ -164,10 +164,13 @@ void zio_generic_data_done(struct zio_cset *cset)
 		block = chan->active_block;
 		if (!block)
 			continue;
-		/* Copy the stamp */
+		/* Copy the stamp: it is cset-wide so it lives in the trigger */
 		chan->current_ctrl->tstamp.secs = ti->tstamp.tv_sec;
 		chan->current_ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
 		chan->current_ctrl->tstamp.bins = ti->tstamp_extra;
+		memcpy(zio_get_ctrl(block), chan->current_ctrl,
+		       ZIO_CONTROL_SIZE);
+
 		if (zbuf->b_op->store_block(bi, block)) /* may fail, no prob */
 			zbuf->b_op->free_block(bi, block);
 	}
@@ -185,8 +188,8 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 	struct zio_device *zdev;
 	struct zio_cset *cset;
 	struct zio_channel *chan;
-	struct zio_control *ctrl;
-	int errdone = 0;
+	struct zio_control *ch_ctrl, *ctrl;
+	int datalen, errdone = 0;
 
 	cset = ti->cset;
 	zdev = cset->zdev;
@@ -196,6 +199,7 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 
 	/* Allocate the buffer for the incoming sample, in active channels */
 	cset_for_each(cset, chan) {
+		ch_ctrl = chan->current_ctrl;
 		ctrl = zio_alloc_control(GFP_ATOMIC);
 		if (!ctrl) {
 			if (!errdone++)
@@ -207,11 +211,9 @@ static void __zio_fire_input_trigger(struct zio_ti *ti)
 		 * Sequence number is always increased to identify un-stored
 		 * blocks or other errors in trigger activation.
 		 */
-		chan->current_ctrl->seq_num++;
-		memcpy(ctrl, chan->current_ctrl, ZIO_CONTROL_SIZE);
-
-		block = zbuf->b_op->alloc_block(chan->bi, ctrl,
-						ctrl->ssize * ctrl->nsamples,
+		ch_ctrl->seq_num++;
+		datalen = ch_ctrl->ssize * ch_ctrl->nsamples;
+		block = zbuf->b_op->alloc_block(chan->bi, ctrl, datalen,
 						GFP_ATOMIC);
 		if (IS_ERR(block)) {
 			/* Remove the following print, it's common */
