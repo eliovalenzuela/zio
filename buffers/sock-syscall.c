@@ -40,7 +40,7 @@
 #define AF_ZIO			28
 #define SOL_ZIO			281
 
-static struct proto zio_proto = {
+static struct proto zn_proto = {
 	.name = "ZIO",
 	.owner = THIS_MODULE,
 	.obj_size = sizeof(struct zio_sock),
@@ -376,17 +376,15 @@ static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
 static int __zn_resolve(struct zio_addr *zaddr, struct zio_dest *d,
 					struct zio_sock *zsk)
 {
-	struct zio_object_list_item *zli;
 	struct zio_device *ziodev;
 
-	zli = zio_find_dev_by_name(zaddr->devname);
-	if (zli == NULL) {
+	ziodev = zio_find_device(zaddr->devname, zaddr->dev_id);
+	if (ziodev == NULL) {
 		pr_debug("ZIO - Can't find registered device\n");
 		return -ENODEV;
 	}
 	d->dev_id = zaddr->dev_id;
-	/*TODO How can i use dev_id from my sockzio_addr?*/
-	ziodev = to_zio_dev(&zli->obj_head->dev);
+	/*TODO How can i use dev_id from my sockaddr_zio?*/
 	strncpy(d->devname, ziodev->head.name, ZIO_OBJ_NAME_LEN);
 
 	if (zaddr->cset == PFZIO_BIND_ANY){
@@ -470,7 +468,7 @@ static int __zn_prepare_out_block(struct zio_sock *zsk, struct sk_buff **skb,
 	else
 		cb->flags &= ~ZSOCK_SENDTO;
 
-	(*skb)->dev = get_output_device((void *)msg->msg_name);
+	(*skb)->dev = zn_netdev;
 	(*skb)->pkt_type = PACKET_HOST;
 
 	len = min_t(size_t, block->datalen - block->uoff, len);
@@ -717,7 +715,7 @@ static int zn_mmap(struct file *file, struct socket *sock,
 	return 0;
 }
 
-static const struct proto_ops zio_proto_ops_dgram = {
+static const struct proto_ops zn_ops_dgram = {
 	.family = PF_ZIO,
 	.owner = THIS_MODULE,
 	.bind = zn_bind,
@@ -733,7 +731,7 @@ static const struct proto_ops zio_proto_ops_dgram = {
 	/*TODO BE CONTINUED*/
 };
 
-static const struct proto_ops zio_proto_ops_stream = {
+static const struct proto_ops zn_ops_stream = {
 	.family = PF_ZIO,
 	.owner = THIS_MODULE,
 	.bind = zn_bind,
@@ -749,7 +747,7 @@ static const struct proto_ops zio_proto_ops_stream = {
 	/*TODO BE CONTINUED*/
 };
 
-static const struct proto_ops zio_proto_ops_raw = {
+static const struct proto_ops zn_ops_raw = {
 	.family = PF_ZIO,
 	.owner = THIS_MODULE,
 	.bind = zn_bind,
@@ -778,17 +776,17 @@ static int zn_create_sock(struct net *net, struct socket *sock, int protocol,
 
 	switch (sock->type) {
 	case SOCK_DGRAM:
-		sock->ops = &zio_proto_ops_dgram;
+		sock->ops = &zn_ops_dgram;
 		break;
 	case SOCK_STREAM:
-		sock->ops = &zio_proto_ops_stream;
+		sock->ops = &zn_ops_stream;
 		break;
 	case SOCK_RAW:
-		sock->ops = &zio_proto_ops_raw;
+		sock->ops = &zn_ops_raw;
 		break;
 	}
 
-	sk = sk_alloc(net, PF_ZIO, GFP_KERNEL, &zio_proto);
+	sk = sk_alloc(net, PF_ZIO, GFP_KERNEL, &zn_proto);
 
 	if (!sk) {
 		printk(KERN_ERR "ZIO - Error while allocating socket\n");

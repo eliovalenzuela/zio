@@ -78,8 +78,8 @@ extern const struct net_proto_family zn_protocol_family;
 extern struct packet_type zn_packet;
 extern const struct net_device_ops zn_netdev_ops;
 extern const struct header_ops zn_header_ops;
-extern struct net_device *get_output_device(struct zio_addr *zaddr);
-extern struct net_device *netdev;
+extern struct net_device *zn_get_output_device(struct zio_addr *zaddr);
+extern struct net_device *zn_netdev;
 
 
 

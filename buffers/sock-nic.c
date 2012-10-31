@@ -39,7 +39,7 @@
 #define AF_ZIO			28
 #define SOL_ZIO			281
 
-struct net_device *netdev;
+struct net_device *zn_netdev;
 
 static int zn_open(struct net_device *dev)
 {
