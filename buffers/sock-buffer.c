@@ -54,22 +54,22 @@ struct zio_sysfs_operations zn_sysfs_ops = {
 	.conf_set = zn_conf_set,
 };
 
-static struct kmem_cache *pfnic_cache;
+static struct kmem_cache *zn_block_memcache;
 
 /*=====*/
 
-struct net_device *get_output_device(struct zio_addr *zaddr)
+struct net_device *zn_get_output_device(struct zio_addr *zaddr)
 {
 	/*TODO Inline?*/
 	/*TODO Implement a working logic. Just for test, now i'll use my iface*/
-	return netdev;
+	return zn_netdev;
 }
 
 static struct net_device *get_input_device(void)
 {
 	/*TODO Inline?*/
 	/*TODO Implement a working logic. Just for test, now i'll use my iface*/
-	return netdev;
+	return zn_netdev;
 }
 
 /*Open socket list */
@@ -87,7 +87,7 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 	struct zio_cb *cb;
 	void *ptr;
 
-	item = kmem_cache_zalloc(pfnic_cache, gfp);
+	item = kmem_cache_zalloc(zn_block_memcache, gfp);
 
 	/*Alloc skb to hold data going to/coming from the framework*/
 	skb = alloc_skb(sizeof(struct ethhdr)+ NET_ZIO_ALIGN + ZIO_CONTROL_SIZE + datalen, gfp);
@@ -104,8 +104,8 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 	memcpy(skb_push(skb, ZIO_CONTROL_SIZE), ctrl, ZIO_CONTROL_SIZE);
 
 	/*Build ethernet header*/
-	dev_hard_header(skb, netdev, ETH_P_ZIO, netdev->dev_addr,
-						netdev->dev_addr, skb->len);
+	dev_hard_header(skb, zn_netdev, ETH_P_ZIO, zn_netdev->dev_addr,
+			zn_netdev->dev_addr, skb->len);
 
 	skb->protocol = cpu_to_be16(ETH_P_ZIO);
 
@@ -125,7 +125,7 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 
 out:
 	kfree_skb(skb);
-	kmem_cache_free(pfnic_cache, item);
+	kmem_cache_free(zn_block_memcache, item);
 	return ERR_PTR(-ENOMEM);
 }
 
@@ -138,7 +138,7 @@ static void zn_free_block(struct zio_bi *bi, struct zio_block *block)
 	item = to_item(block);
 	kfree_skb(item->skb);
 	zio_free_control(zio_get_ctrl(block));
-	kmem_cache_free(pfnic_cache, item);
+	kmem_cache_free(zn_block_memcache, item);
 }
 
 /* Store is called by the trigger (for input) or by ndo_hard_xmit (for output)*/
@@ -266,33 +266,35 @@ static int __init zn_init(void)
 	dev_add_pack(&zn_packet);
 
 	/*Creating network device*/
-	netdev = alloc_etherdev(sizeof(struct zn_priv));
-	if (!netdev) {
+	zn_netdev = alloc_etherdev(sizeof(struct zn_priv));
+	if (!zn_netdev) {
 		dev_remove_pack(&zn_packet);
 		sock_unregister(PF_ZIO);
 		return -ENODEV; /*FIXME*/
 	}
-	strcpy(netdev->name, "zio");
-	netdev->netdev_ops = &zn_netdev_ops;
-	netdev->header_ops = &zn_header_ops;
-	random_ether_addr(netdev->dev_addr);
+	strcpy(zn_netdev->name, "zio");
+	zn_netdev->netdev_ops = &zn_netdev_ops;
+	zn_netdev->header_ops = &zn_header_ops;
+	random_ether_addr(zn_netdev->dev_addr);
 
-	priv = netdev_priv(netdev);
-	priv->netdev = netdev;
-	register_netdev(netdev);
+	priv = netdev_priv(zn_netdev);
+	priv->netdev = zn_netdev;
+	register_netdev(zn_netdev);
 
 	/*Register buffer*/
-	pfnic_cache = kmem_cache_create("zio-pfnic", sizeof(struct zn_item),
-		__alignof__(struct zn_item), 0, NULL);
-	if (!pfnic_cache) {
-		unregister_netdev(netdev);
-		free_netdev(netdev);
+	zn_block_memcache = kmem_cache_create("zio-sock",
+					      sizeof(struct zn_item),
+					      __alignof__(struct zn_item),
+					      0, NULL);
+	if (!zn_block_memcache) {
+		unregister_netdev(zn_netdev);
+		free_netdev(zn_netdev);
 		dev_remove_pack(&zn_packet);
 		sock_unregister(PF_ZIO);
 		return -ENOMEM;
 	}
 
-	ret = zio_register_buf(&zn_buffer, "pfnic");
+	ret = zio_register_buf(&zn_buffer, "socket");
 
 	/*Init socket list...*/
 	INIT_LIST_HEAD(&zn_sock_list);
@@ -302,8 +304,8 @@ static int __init zn_init(void)
 static void __exit zn_exit(void)
 {
 	/*Remove net device*/
-	unregister_netdev(netdev);
-	free_netdev(netdev);
+	unregister_netdev(zn_netdev);
+	free_netdev(zn_netdev);
 
 	/*Remove packet rcv handler*/
 	dev_remove_pack(&zn_packet);
