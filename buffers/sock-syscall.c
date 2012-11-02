@@ -5,23 +5,16 @@
  * users to exchange data with the framework using sockets. So it implements a
  * new software network interface, and a new socket-layer logic.
  */
-
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/slab.h>
-#include <linux/sched.h>
 #include <linux/list.h>
 #include <linux/err.h>
-#include <linux/fs.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/device.h>
 
-#include <linux/netdevice.h>
-#include <linux/etherdevice.h>
-#include <linux/skbuff.h>
-#include <linux/netdevice.h>
 #include <linux/skbuff.h>
 #include <linux/net.h>
 #include <net/sock.h>
@@ -29,9 +22,6 @@
 
 #define __ZIO_INTERNAL__
 #include <linux/zio.h>
-#include <linux/zio-buffer.h>
-#include <linux/zio-trigger.h>
-#include <linux/zio-sysfs.h>
 #include <linux/zio-user.h>
 #include <linux/zio-sock.h>
 
@@ -45,14 +35,14 @@ static struct proto zn_proto = {
 static DEFINE_SPINLOCK(zn_list_lock);
 
 static int zn_getname(struct socket *sock, struct sockaddr *uaddr,
-						int *uaddr_len, int peer)
+		      int *uaddr_len, int peer)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
 	struct zio_addr *szio = (void *)uaddr;
 	struct zn_dest *d = &zsk->connected_chan;
 
-	if (!(zsk->flags & (ZN_SOCK_CONNECTED ||ZN_SOCK_BOUND)))
+	if (!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND)))
 		return -ENOTCONN;
 
 	szio->sa_family = AF_ZIO;
@@ -72,7 +62,8 @@ static int zn_getname(struct socket *sock, struct sockaddr *uaddr,
 
 	szio->chan = d->chan->index;
 
-out:	szio->host_type = 0;			/*Not used atm, set to zero*/
+out:
+	szio->host_type = 0;	/* Not used atm, set to zero */
 	memset(szio->hostid, 0, sizeof(szio->hostid));
 	strcpy(szio->devname, d->cset->zdev->head.name);
 
@@ -82,13 +73,13 @@ out:	szio->host_type = 0;			/*Not used atm, set to zero*/
 }
 
 static unsigned int zn_poll(struct file *file, struct socket *sock,
-							poll_table *wait)
+			    poll_table *wait)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
 	int mask = 0;
 
-	if (!((zsk->flags & ZN_SOCK_CONNECTED) || (zsk->flags & ZN_SOCK_BOUND)))
+	if (!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND)))
 		return -ENOTCONN;
 
 	sock_poll_wait(file, sk_sleep(sk), wait);
@@ -105,7 +96,7 @@ static unsigned int zn_poll(struct file *file, struct socket *sock,
 	if (!skb_queue_empty(&sk->sk_receive_queue))
 		mask |= POLLIN | POLLRDNORM;
 
-	/*TODO writetable?*/
+	/* TODO writetable? */
 	mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
 
 	return mask;
@@ -121,7 +112,7 @@ static void zn_copy_addr(struct msghdr *msg, struct zio_block *block)
 
 	msg->msg_namelen = sizeof(struct zio_addr);
 	memcpy(szio, &ctrl->addr, sizeof(struct zio_addr));
-	szio->sa_family = AF_ZIO;
+	szio->sa_family = AF_ZIO; /* FIXME: already done */
 
 	/*TODO: Add something to set szio->host_type*/
 
@@ -130,14 +121,14 @@ static void zn_copy_addr(struct msghdr *msg, struct zio_block *block)
 
 /*Retrieves an skb from the input queue and a block pointer from it*/
 static int __zn_get_skb_block(struct zn_sock *zsk, struct zio_block **blockptr,
-				int flags)
+			      int flags)
 {
 	struct zn_cb *cb;
 	struct sk_buff *skb;
 	int err;
 
 	skb = skb_recv_datagram((struct sock *)zsk, 0,
-						flags & MSG_DONTWAIT, &err);
+				flags & MSG_DONTWAIT, &err);
 	if (!skb)
 		return err;
 	cb = (struct zn_cb *)(skb->cb);
@@ -147,7 +138,7 @@ static int __zn_get_skb_block(struct zn_sock *zsk, struct zio_block **blockptr,
 }
 
 static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
-			struct msghdr *msg, size_t size, int flags)
+			    struct msghdr *msg, size_t size, int flags)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -156,7 +147,7 @@ static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
 	struct zn_item *item;
 	int err = 0;
 
-	if (unlikely(!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND))))
+	if (!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND)))
 		return -ENOTCONN;
 
 	err = __zn_get_skb_block(zsk, &block, flags);
@@ -166,8 +157,7 @@ static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
 	if (size > block->datalen - block->uoff)
 		size = block->datalen - block->uoff;
 
-	err = memcpy_toiovec(msg->msg_iov,
-		block->data + block->uoff, size);
+	err = memcpy_toiovec(msg->msg_iov, block->data + block->uoff, size);
 
 	if (unlikely(err))
 		return err;
@@ -175,17 +165,19 @@ static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
 	if (flags & MSG_PEEK)
 		return size;
 
-	if (flags & MSG_TRUNC) {
+	if (flags & MSG_TRUNC)
 		size = block->datalen;
-	}
 
 	if (msg->msg_name && msg->msg_namelen)
 		zn_copy_addr(msg, block);
 
-	if (zsk->flags & ZN_SOCK_BOUND){
-	/*At bound time we can't know where this block will come from.
-	 * So we discover the associated buffer here. For connected socket the
-	 * buffer istance is known and saved at connect time*/
+	if (zsk->flags & ZN_SOCK_BOUND) {
+		/*
+		 * At bind time we can't know where this block will
+		 * come from.  So we discover the associated buffer
+		 * here. For connected socket the buffer istance is
+		 * known and saved at connect time
+		 */
 		item = to_zn_item(block);
 		d->bi = &item->instance->bi;
 	}
@@ -197,7 +189,7 @@ static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
 }
 
 static int zn_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
-			struct msghdr *msg, size_t size, int flags)
+			     struct msghdr *msg, size_t size, int flags)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -206,11 +198,11 @@ static int zn_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 	struct zn_item *item;
 	int err = 0, copied = 0, left;
 
-	if (unlikely(!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND))))
+	if (!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND)))
 		return -ENOTCONN;
 
 	while (size > copied) {
-		if ((block = zsk->active_block) == NULL) {		/*FIXME Likely?*/
+		if ((block = zsk->active_block) == NULL) {
 			err = __zn_get_skb_block(zsk, &block, flags);
 			if (err)
 				return err;
@@ -255,7 +247,7 @@ static int zn_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 }
 
 static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
-			struct msghdr *msg, size_t size, int flags)
+			  struct msghdr *msg, size_t size, int flags)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -265,7 +257,7 @@ static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
 	struct zn_item *item;
 	int err;
 
-	if (unlikely(!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND))))
+	if (!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND)))
 		return -ENOTCONN;
 
 	err = __zn_get_skb_block(zsk, &block, flags);
@@ -315,7 +307,7 @@ static int __zn_resolve(struct zio_addr *zaddr, struct zn_dest *d,
 		return -ENODEV;
 	}
 	d->dev_id = zaddr->dev_id;
-	/*TODO How can i use dev_id from my sockaddr_zio?*/
+	/* TODO How can i use dev_id from my sockaddr_zio? */
 	strncpy(d->devname, ziodev->head.name, ZIO_OBJ_NAME_LEN);
 
 	if (zaddr->cset == PFZIO_BIND_ANY){
@@ -349,9 +341,10 @@ static int __zn_resolve(struct zio_addr *zaddr, struct zn_dest *d,
 	return 0;
 }
 
-/*type is used to tell if working with sock_raw or not*/
+/* type is used to tell if working with sock_raw or not */
 static int __zn_get_out_block(struct zn_sock *zsk, struct zn_dest *d,
-			struct zio_block **block, struct msghdr *msg, int type)
+			      struct zio_block **block, struct msghdr *msg,
+			      int type)
 {
 	struct zio_control *ctrl;
 	int datalen;
@@ -361,11 +354,11 @@ static int __zn_get_out_block(struct zn_sock *zsk, struct zn_dest *d,
 		return -ENOMEM;
 
 	if (type == SOCK_RAW)
-		memcpy_fromiovec((unsigned char *)d->chan->current_ctrl,
-					msg->msg_iov, ZIO_CONTROL_SIZE);
+		memcpy_fromiovec((unsigned char*)d->chan->current_ctrl,
+				 msg->msg_iov, ZIO_CONTROL_SIZE);
 
-	memcpy((unsigned char *)ctrl, d->bi->chan->current_ctrl,
-							ZIO_CONTROL_SIZE);
+	memcpy(ctrl, d->bi->chan->current_ctrl,
+	       ZIO_CONTROL_SIZE);
 
 	datalen = ctrl->ssize * ctrl->nsamples;
 
@@ -386,11 +379,9 @@ static int __zn_prepare_out_block(struct zn_sock *zsk, struct sk_buff **skb,
 
 	item = to_zn_item(block);
 	*skb = item->skb;
-	/*this skb_set_owner is useless atm. In hard_txmit the field skb->sk is
-	null, so useless, dont know why...*/
+	/* this skb_set_owner is useless atm? FIXME */
 	skb_set_owner_w(*skb, (struct sock *)zsk);
-	/*skb->sk = (struct sock *)zsk;*/
-	/*So i try with this ugly thing for now*/
+	/* skb->sk = (struct sock *)zsk; */
 	cb = (struct zn_cb *)(*skb)->cb;
 	cb->zcb.zsk = zsk;
 
@@ -412,7 +403,7 @@ static int __zn_prepare_out_block(struct zn_sock *zsk, struct sk_buff **skb,
 }
 
 static int __zn_xmit_block(struct zn_sock *zsk, struct zio_block *block,
-							struct sk_buff *skb)
+			   struct sk_buff *skb)
 {
 	int err;
 
@@ -429,7 +420,7 @@ static int __zn_xmit_block(struct zn_sock *zsk, struct zio_block *block,
 }
 
 static int zn_sendmsg_dgram(struct kiocb *kiocb, struct socket *sock,
-			struct msghdr *msg, size_t len)
+			    struct msghdr *msg, size_t len)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -438,7 +429,7 @@ static int zn_sendmsg_dgram(struct kiocb *kiocb, struct socket *sock,
 	struct zio_block *block = zsk->out_block;
 	int err;
 
-	printk("%s called\n", __func__);
+	pr_debug("%s called\n", __func__);
 
 	if (msg->msg_name) {
 		err = __zn_resolve((struct zio_addr *)msg->msg_name,
@@ -454,7 +445,7 @@ static int zn_sendmsg_dgram(struct kiocb *kiocb, struct socket *sock,
 	if (unlikely((d->bi->flags & ZIO_DIR) == ZIO_DIR_INPUT))
 		return -EOPNOTSUPP;
 
-	/*Check if we have a block ready to send data*/
+	/* Check if we have a block ready to send data */
 	if (block == NULL) {
 		err = __zn_get_out_block(zsk, d, &block, msg, 0);
 		if (err)
@@ -474,7 +465,7 @@ static int zn_sendmsg_dgram(struct kiocb *kiocb, struct socket *sock,
 }
 
 static int zn_sendmsg_stream(struct kiocb *kiocb, struct socket *sock,
-			struct msghdr *msg, size_t len)
+			     struct msghdr *msg, size_t len)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -500,13 +491,13 @@ static int zn_sendmsg_stream(struct kiocb *kiocb, struct socket *sock,
 	while (tot_pushed < len) {
 		if ((block = zsk->out_block) == NULL) {
 			err = __zn_get_out_block(zsk, d, &block, msg,
-								SOCK_STREAM);
+						 SOCK_STREAM);
 			if (err)
 				return err;
 		}
 
 		pushed = __zn_prepare_out_block(zsk, &skb, msg, block,
-							len - tot_pushed);
+						len - tot_pushed);
 		if (pushed < 0)
 			return pushed;
 
@@ -522,7 +513,7 @@ static int zn_sendmsg_stream(struct kiocb *kiocb, struct socket *sock,
 }
 
 static int zn_sendmsg_raw(struct kiocb *kiocb, struct socket *sock,
-			struct msghdr *msg, size_t len)
+			  struct msghdr *msg, size_t len)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -533,7 +524,7 @@ static int zn_sendmsg_raw(struct kiocb *kiocb, struct socket *sock,
 
 	if (msg->msg_name) {
 		err = __zn_resolve((struct zio_addr *)msg->msg_name,
-						&zsk->sendto_chan, zsk);
+				   &zsk->sendto_chan, zsk);
 		if (err)
 			return err;
 		d = &zsk->sendto_chan;
@@ -556,7 +547,7 @@ static int zn_sendmsg_raw(struct kiocb *kiocb, struct socket *sock,
 	}
 
 	len = __zn_prepare_out_block(zsk, &skb, msg, block,
-							len - ZIO_CONTROL_SIZE);
+				     len - ZIO_CONTROL_SIZE);
 	if (len < 0)
 		return len;
 
@@ -575,7 +566,7 @@ static int zn_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
 	int ret;
 
 	ret = __zn_resolve((struct zio_addr *)addr, &zsk->connected_chan,
-									zsk);
+			   zsk);
 	if (ret < 0)
 		return ret;
 
@@ -587,7 +578,7 @@ static int zn_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
 }
 
 static int zn_connect(struct socket *sock, struct sockaddr *addr,
-							int alen, int flags)
+		      int alen, int flags)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk = zn_sk(sk);
@@ -595,7 +586,7 @@ static int zn_connect(struct socket *sock, struct sockaddr *addr,
 
 	printk("Called %s\n", __func__);
 	ret = __zn_resolve((struct zio_addr *)addr, &zsk->connected_chan,
-									zsk);
+			   zsk);
 	if (ret < 0)
 		return ret;
 
@@ -628,12 +619,12 @@ static int zn_release(struct socket *sock)
 	sock_orphan(sk);
 	sock->sk = NULL;
 
-	/*Remove socket from our socket list*/
+	/* Remove socket from our socket list */
 	spin_lock(&zn_list_lock);
 	list_del(&zsk->list);
 	spin_unlock(&zn_list_lock);
 
-	/* Ungrab socket and destroy it, if it was the last reference.*/
+	/* Ungrab socket and destroy it, if it was the last reference. */
 	sock_put(sk);
 
 	return 0;
@@ -642,7 +633,7 @@ static int zn_release(struct socket *sock)
 static int zn_mmap(struct file *file, struct socket *sock,
 						struct vm_area_struct *vma)
 {
-	printk("Called %s\n", __func__);
+	pr_debug("Called %s\n", __func__);
 	return 0;
 }
 
@@ -657,7 +648,6 @@ static const struct proto_ops zn_ops_dgram = {
 	.recvmsg = zn_recvmsg_dgram,
 	.sendmsg = zn_sendmsg_dgram,
 	.mmap = zn_mmap,
-	/*TODO BE CONTINUED*/
 };
 
 static const struct proto_ops zn_ops_stream = {
@@ -671,7 +661,6 @@ static const struct proto_ops zn_ops_stream = {
 	.recvmsg = zn_recvmsg_stream,
 	.sendmsg = zn_sendmsg_stream,
 	.mmap = zn_mmap,
-	/*TODO BE CONTINUED*/
 };
 
 static const struct proto_ops zn_ops_raw = {
@@ -685,11 +674,10 @@ static const struct proto_ops zn_ops_raw = {
 	.recvmsg = zn_recvmsg_raw,
 	.sendmsg = zn_sendmsg_raw,
 	.mmap = zn_mmap,
-	/*TODO BE CONTINUED*/
 };
 
 static int zn_create_sock(struct net *net, struct socket *sock, int protocol,
-								int kern)
+			  int kern)
 {
 	struct sock *sk = sock->sk;
 	struct zn_sock *zsk;
@@ -722,9 +710,9 @@ static int zn_create_sock(struct net *net, struct socket *sock, int protocol,
 	sk->sk_protocol = protocol;
 
 	/*
-	 * Do here protocol specific data init eg. pointer to din.alloc. memory
+	 * Do protocol specific data init eg. pointer to allocated memory
 	 *
-	 *This way
+	 * This way
 	 *
 	 * struct zn_sock *zsk;
 	 * zsk = zn_sk(sk);
@@ -734,7 +722,7 @@ static int zn_create_sock(struct net *net, struct socket *sock, int protocol,
 	zsk = zn_sk(sk);
 	zsk->flags = 0;
 
-	/*Add socket to currently open sock list*/
+	/* Add socket to currently open sock list */
 	spin_lock(&zn_list_lock);
 	list_add_tail(&zsk->list, &zn_sock_list);
 	spin_unlock(&zn_list_lock);
@@ -748,11 +736,6 @@ const struct net_proto_family zn_protocol_family = {
 	.owner = THIS_MODULE,
 };
 
-/*
- * ======================================================
- * Zio socket ENDS here
- * ======================================================
- */
 
 static struct sock *get_target_sock(struct sk_buff *skb)
 {
@@ -766,11 +749,13 @@ static struct sock *get_target_sock(struct sk_buff *skb)
 	list_for_each_safe(pos, tmp, &zn_sock_list) {
 		zsk = list_entry(pos, struct zn_sock, list);
 		d = &zsk->connected_chan;
-		/*This is needed because a still not-connected socket could be
-		 * checked against incoming packet*/
+		/* 
+		 * This is needed because a still not-connected socket
+		 * could be checked against incoming packet
+		 */
 		if (d == NULL)
 			return NULL;
-		/*TODO dev_id now is never set, but this is needed!*/
+		/* TODO dev_id now is never set, but this is needed! */
 		if (ctrl->addr.dev_id != d->dev_id)
 			continue;
 		if (zsk->flags & ZN_SOCK_DEV_BOUND)
@@ -778,7 +763,7 @@ static struct sock *get_target_sock(struct sk_buff *skb)
 		if (ctrl->addr.cset != d->cset->index)
 			continue;
 		if ((zsk->flags & ZN_SOCK_CSET_BOUND) ||
-					(ctrl->addr.chan == d->chan->index))
+		    (ctrl->addr.chan == d->chan->index))
 			return (struct sock *)zsk;
 	}
 
@@ -786,7 +771,7 @@ static struct sock *get_target_sock(struct sk_buff *skb)
 }
 
 static int zn_rcv(struct sk_buff *skb, struct net_device *dev,
-			struct packet_type *pkt, struct net_device *orig_dev)
+		  struct packet_type *pkt, struct net_device *orig_dev)
 {
 	struct zn_priv *priv = netdev_priv(skb->dev);
 	struct net_device_stats *stats = &priv->stats;
