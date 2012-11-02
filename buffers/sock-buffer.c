@@ -36,11 +36,6 @@
 #include <linux/zio-sock.h>
 
 
-
-#define PF_ZIO			28
-#define AF_ZIO			28
-#define SOL_ZIO			281
-
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zn_std_zattr) = {
 	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
 };
@@ -119,7 +114,7 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 
 	ptr = &item->block;
 	cb = (struct zio_cb *)skb->cb;
-	cb->block = ptr;
+	cb->zcb.block = ptr;
 
 	return &item->block;
 
@@ -278,7 +273,6 @@ static int __init zn_init(void)
 	random_ether_addr(zn_netdev->dev_addr);
 
 	priv = netdev_priv(zn_netdev);
-	priv->netdev = zn_netdev;
 	register_netdev(zn_netdev);
 
 	/*Register buffer*/

@@ -36,10 +36,6 @@
 #include <linux/zio-sock.h>
 
 
-#define PF_ZIO			28
-#define AF_ZIO			28
-#define SOL_ZIO			281
-
 static struct proto zn_proto = {
 	.name = "ZIO",
 	.owner = THIS_MODULE,
@@ -47,71 +43,6 @@ static struct proto zn_proto = {
 };
 
 static DEFINE_SPINLOCK(zn_list_lock);
-
-static int zn_setsockopt(struct socket *sock, int level, int optname,
-				char __user *optval, unsigned int optlen)
-{
-	struct sock *sk = sock->sk;
-	struct zio_sock *zsk = zio_sk(sk);
-
-	if (level != SOL_ZIO)
-		return -ENOPROTOOPT;
-
-	/*
-	 * Example option management based on flags, as options' specs
-	 * are not defined yet
-	 */
-	switch (optname) {
-	case ZSOCK_OPT1:
-		zsk->flags |= ZSOCK_OPT1;
-		break;
-	case ZSOCK_OPT2:
-		zsk->flags |= ZSOCK_OPT2;
-		break;
-	default:
-		return -ENOPROTOOPT;
-		break;
-	}
-
-	return 0;
-}
-
-static int zn_getsockopt(struct socket *sock, int level, int optname,
-					char __user *optval, int __user *optlen)
-{
-	struct sock *sk = sock->sk;
-	struct zio_sock *zsk = zio_sk(sk);
-	int value = 0x00;
-
-	if (level != SOL_ZIO)
-		return -ENOPROTOOPT;
-
-	/*
-	 * Example option management based on flags, as options' specs
-	 * are not defined yet
-	 */
-	switch (optname) {
-	case ZSOCK_OPT1:
-		if (zsk->flags & ZSOCK_OPT1)
-			value = 1;
-		break;
-	case ZSOCK_OPT2:
-		if (zsk->flags & ZSOCK_OPT2)
-			value = 1;
-		break;
-	default:
-		return -ENOPROTOOPT;
-		break;
-	}
-	if (*optlen >= sizeof(value)) {
-		if (put_user(sizeof(value), optlen))
-			return -EFAULT;
-		if (put_user(value, optval))
-			return -EFAULT;
-		return 0;
-	}
-	return -EINVAL;
-}
 
 static int zn_getname(struct socket *sock, struct sockaddr *uaddr,
 						int *uaddr_len, int peer)
@@ -210,7 +141,7 @@ static int __zn_get_skb_block(struct zio_sock *zsk, struct zio_block **blockptr,
 	if (!skb)
 		return err;
 	cb = (struct zio_cb *)(skb->cb);
-	zsk->active_block = cb->block;
+	zsk->active_block = cb->zcb.block;
 	*blockptr = zsk->active_block;
 	return 0;
 }
@@ -461,12 +392,12 @@ static int __zn_prepare_out_block(struct zio_sock *zsk, struct sk_buff **skb,
 	/*skb->sk = (struct sock *)zsk;*/
 	/*So i try with this ugly thing for now*/
 	cb = (struct zio_cb *)(*skb)->cb;
-	cb->zsk = zsk;
+	cb->zcb.zsk = zsk;
 
 	if (msg->msg_name)
-		cb->flags |= ZSOCK_SENDTO;
+		cb->zcb.flags |= ZSOCK_SENDTO;
 	else
-		cb->flags &= ~ZSOCK_SENDTO;
+		cb->zcb.flags &= ~ZSOCK_SENDTO;
 
 	(*skb)->dev = zn_netdev;
 	(*skb)->pkt_type = PACKET_HOST;
@@ -722,8 +653,6 @@ static const struct proto_ops zn_ops_dgram = {
 	.connect = zn_connect,
 	.release = zn_release,
 	.getname = zn_getname,
-	.setsockopt = zn_setsockopt,
-	.getsockopt = zn_getsockopt,
 	.poll = zn_poll,
 	.recvmsg = zn_recvmsg_dgram,
 	.sendmsg = zn_sendmsg_dgram,
@@ -738,8 +667,6 @@ static const struct proto_ops zn_ops_stream = {
 	.connect = zn_connect,
 	.release = zn_release,
 	.getname = zn_getname,
-	.setsockopt = zn_setsockopt,
-	.getsockopt = zn_getsockopt,
 	.poll = zn_poll,
 	.recvmsg = zn_recvmsg_stream,
 	.sendmsg = zn_sendmsg_stream,
@@ -754,8 +681,6 @@ static const struct proto_ops zn_ops_raw = {
 	.connect = zn_connect,
 	.release = zn_release,
 	.getname = zn_getname,
-	.setsockopt = zn_setsockopt,
-	.getsockopt = zn_getsockopt,
 	.poll = zn_poll,
 	.recvmsg = zn_recvmsg_raw,
 	.sendmsg = zn_sendmsg_raw,
@@ -833,7 +758,7 @@ static struct sock *get_target_sock(struct sk_buff *skb)
 {
 	struct zio_sock *zsk = NULL;
 	struct zio_cb *cb = (struct zio_cb *)skb->cb;
-	struct zio_block *block = cb->block;
+	struct zio_block *block = cb->zcb.block;
 	struct zio_control *ctrl = zio_get_ctrl(block);
 	struct zio_dest *d;
 	struct list_head *pos, *tmp;
