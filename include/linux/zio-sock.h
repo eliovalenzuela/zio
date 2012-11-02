@@ -1,7 +1,12 @@
+#ifndef __ZIO_SOCK_H__
+#define __ZIO_SOCK_H__
+
 #include <linux/socket.h>
 
+/* The following two are temporary choices */
 #define ETH_P_ZIO		0x5678
-#define NET_ZIO_ALIGN		2
+#define PF_ZIO			28
+#define AF_ZIO			PF_ZIO
 
 #ifndef __KERNEL__ /* For user-space, define sockaddr_zio canonically */
 #include <sys/socket.h>
@@ -31,10 +36,7 @@ struct sockaddr_zio {
 #define ZSOCK_OPT1		0x20
 #define ZSOCK_OPT2		0x40
 
-
-extern struct zio_object_list_item *zio_find_dev_by_name(char *name);
-
-/*==Struct area==*/
+#define NET_ZIO_ALIGN		2
 
 struct zio_dest {
 	uint32_t dev_id;
@@ -56,22 +58,27 @@ struct zio_sock {
 	struct list_head list;
 };
 
-/*Struct to be placed inside sk_buff->cb field*/
-struct zio_cb {
-	/*The first byte of skb->cb are written by someone else, so we take
-	 * a little padding to be secure our data remain untouched*/
-	char unused[sizeof(((struct sk_buff *)0)->cb)
-			- sizeof(struct zio_sock *) - sizeof(struct zio_block *)
-			- sizeof(int)];
+/* Structure to be placed inside sk_buff->cb field */
+struct __zio_cb {
 	struct zio_sock *zsk;
 	struct zio_block *block;
 	int flags;
 };
 
+struct zio_cb {
+	/*
+	 * The leading part of skb->cb is already in use, it seems.
+	 * So place our stuff at the end (FIXME: check this).
+	 * Unfortunately cb doesn't have a name, so we need this hack
+	 */
+	char unused[sizeof(((struct sk_buff *)0)->cb)
+		    - sizeof(struct __zio_cb)];
+	struct __zio_cb zcb;
+};
+
+/* Stats and nothing more, by now */
 struct zn_priv {
-	/*Stats-related fields*/
 	struct net_device_stats stats;
-	struct net_device *netdev;
 };
 
 extern const struct net_proto_family zn_protocol_family;
@@ -81,10 +88,9 @@ extern const struct header_ops zn_header_ops;
 extern struct net_device *zn_get_output_device(struct zio_addr *zaddr);
 extern struct net_device *zn_netdev;
 
-
-
 #define zio_sk(__sk) ((struct zio_sock *)__sk)
 
+/* This is the buffer instance (one per channel) */
 struct zn_instance {
 	struct zio_bi bi;
 	int nitem;
@@ -93,7 +99,7 @@ struct zn_instance {
 
 #define to_zni(bi) container_of(bi, struct zn_instance, bi)
 
-
+/* And this is the buffer list item (one per block) */
 struct zn_item {
 	struct zio_block block;
 	struct list_head list;
@@ -103,6 +109,8 @@ struct zn_item {
 
 #define to_item(block) container_of(block, struct zn_item, block)
 
+/* All open sockets */
 extern struct list_head zn_sock_list;
 
 #endif /* __KERNEL__ */
+#endif /* __ZIO_SOCK_H__ */

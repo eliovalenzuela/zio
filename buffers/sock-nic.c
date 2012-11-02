@@ -35,10 +35,6 @@
 #include <linux/zio-user.h>
 #include <linux/zio-sock.h>
 
-#define PF_ZIO			28
-#define AF_ZIO			28
-#define SOL_ZIO			281
-
 struct net_device *zn_netdev;
 
 static int zn_open(struct net_device *dev)
@@ -72,10 +68,10 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	/*Ugly solution to the problem exposed in zn_sendmsg*/
-	zsk = cb->zsk;
-	block = cb->block;
+	zsk = cb->zcb.zsk;
+	block = cb->zcb.block;
 
-	if (cb->flags & ZSOCK_SENDTO)
+	if (cb->zcb.flags & ZSOCK_SENDTO)
 		d = &zsk->sendto_chan;
 	else
 		d = &zsk->connected_chan;
