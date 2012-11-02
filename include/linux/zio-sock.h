@@ -27,18 +27,16 @@ struct sockaddr_zio {
 
 #include <net/sock.h>
 
-#define ZSOCK_CONNECTED		0x1
-#define ZSOCK_BOUND		0x2
-#define ZSOCK_SENDTO		0x4
-#define ZSOCK_DEV_BOUND		0x8
-#define ZSOCK_CSET_BOUND	0x10
-/*Test option flag to use with set/getsockopt*/
-#define ZSOCK_OPT1		0x20
-#define ZSOCK_OPT2		0x40
+#define ZN_SOCK_CONNECTED	0x1
+#define ZN_SOCK_BOUND		0x2
+#define ZN_SOCK_SENDTO		0x4
+#define ZN_SOCK_DEV_BOUND	0x8
+#define ZN_SOCK_CSET_BOUND	0x10
 
 #define NET_ZIO_ALIGN		2
 
-struct zio_dest {
+/* FIXME: this is only used in sock-syscall.c */
+struct zn_dest {
 	uint32_t dev_id;
 	char devname[ZIO_OBJ_NAME_LEN];
 	struct zio_channel *chan;
@@ -47,11 +45,11 @@ struct zio_dest {
 	struct zio_ti *ti;
 };
 
-struct zio_sock {
+struct zn_sock {
 	struct sock sk;
 	/*Add protocol specific member here*/
-	struct zio_dest connected_chan;
-	struct zio_dest sendto_chan;
+	struct zn_dest connected_chan;
+	struct zn_dest sendto_chan;
 	struct zio_block *active_block;
 	struct zio_block *out_block;
 	uint32_t flags;
@@ -59,21 +57,21 @@ struct zio_sock {
 };
 
 /* Structure to be placed inside sk_buff->cb field */
-struct __zio_cb {
-	struct zio_sock *zsk;
+struct __zn_cb {
+	struct zn_sock *zsk;
 	struct zio_block *block;
 	int flags;
 };
 
-struct zio_cb {
+struct zn_cb {
 	/*
 	 * The leading part of skb->cb is already in use, it seems.
 	 * So place our stuff at the end (FIXME: check this).
 	 * Unfortunately cb doesn't have a name, so we need this hack
 	 */
 	char unused[sizeof(((struct sk_buff *)0)->cb)
-		    - sizeof(struct __zio_cb)];
-	struct __zio_cb zcb;
+		    - sizeof(struct __zn_cb)];
+	struct __zn_cb zcb;
 };
 
 /* Stats and nothing more, by now */
@@ -88,7 +86,7 @@ extern const struct header_ops zn_header_ops;
 extern struct net_device *zn_get_output_device(struct zio_addr *zaddr);
 extern struct net_device *zn_netdev;
 
-#define zio_sk(__sk) ((struct zio_sock *)__sk)
+#define zn_sk(__sk) ((struct zn_sock *)__sk)
 
 /* This is the buffer instance (one per channel) */
 struct zn_instance {
@@ -107,7 +105,7 @@ struct zn_item {
 	struct sk_buff *skb;
 };
 
-#define to_item(block) container_of(block, struct zn_item, block)
+#define to_zn_item(block) container_of(block, struct zn_item, block)
 
 /* All open sockets */
 extern struct list_head zn_sock_list;
