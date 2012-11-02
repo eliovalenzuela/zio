@@ -26,6 +26,7 @@ struct sockaddr_zio {
 #else /* __KERNEL__ */
 
 #include <net/sock.h>
+#include <linux/zio-buffer.h>
 
 #define ZN_SOCK_CONNECTED	0x1
 #define ZN_SOCK_BOUND		0x2

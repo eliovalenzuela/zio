@@ -5,48 +5,37 @@
  * users to exchange data with the framework using sockets. So it implements a
  * new software network interface, and a new socket-layer logic.
  */
-
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/init.h>
-#include <linux/slab.h>
-#include <linux/sched.h>
-#include <linux/list.h>
-#include <linux/err.h>
-#include <linux/fs.h>
-#include <linux/spinlock.h>
 #include <linux/types.h>
 
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
+#include <linux/netdevice.h>
+#include <linux/net.h>
 #include <net/sock.h>
 #include <net/tcp_states.h> /* TCP_ESABLISHED is needed for SOCK_STREAM */
-#include <linux/netdevice.h>
-#include <linux/skbuff.h>
-#include <linux/net.h>
-#include <linux/device.h>
 
 #define __ZIO_INTERNAL__
 #include <linux/zio.h>
-#include <linux/zio-buffer.h>
-#include <linux/zio-trigger.h>
-#include <linux/zio-sysfs.h>
 #include <linux/zio-user.h>
+#include <linux/zio-trigger.h>
 #include <linux/zio-sock.h>
 
 struct net_device *zn_netdev;
 
 static int zn_open(struct net_device *dev)
 {
-	printk("%s called\n", __func__);
+	pr_debug("%s called\n", __func__);
 	netif_start_queue(dev);
 	return 0;
 }
 
 static int zn_close(struct net_device *dev)
 {
-	printk("%s called\n", __func__);
+	pr_debug("%s called\n", __func__);
 	netif_stop_queue(dev);
 	return 0;
 }
@@ -60,7 +49,7 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct zio_block *block;
 	struct zn_cb *cb = (struct zn_cb *)skb->cb;
 
-	printk("%s called\n", __func__);
+	pr_debug("%s called\n", __func__);
 
 	if (unlikely(skb->protocol != cpu_to_be16(ETH_P_ZIO))) {
 		/*FIXME kfree_skb needed?*/
@@ -77,12 +66,12 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		d = &zsk->connected_chan;
 
 	if ((d->ti->flags & ZIO_STATUS) == ZIO_DISABLED) {
-		printk("Zio trigger is disabled, ");
+		pr_debug("Zio trigger is disabled, ");
 		goto out_free;
 	}
 	if (d->ti->t_op->push_block(d->ti, d->chan, block) < 0)
 		if (d->bi->b_op->store_block(d->bi, block) < 0){
-			printk("Not enough space in buffer, ");
+			pr_debug("Not enough space in buffer, ");
 			goto out_free;
 		}
 
@@ -101,7 +90,7 @@ out_free:
 
 static int zn_set_mac_address(struct net_device *dev, void *vaddr)
 {
-	printk("%s called\n", __func__);
+	pr_debug("%s called\n", __func__);
 	return 0;
 }
 
@@ -128,13 +117,13 @@ static int zn_header(struct sk_buff *skb, struct net_device *dev,
 
 static int zn_rebuild_header(struct sk_buff *skb)
 {
-	printk("%s called\n", __func__);
+	pr_debug("%s called\n", __func__);
 	return 0;
 }
 
 static void zn_tx_timeout(struct net_device *dev)
 {
-	printk("%s called\n", __func__);
+	pr_debug("%s called\n", __func__);
 	return;
 }
 
@@ -146,7 +135,7 @@ struct net_device_stats *zn_stats(struct net_device *dev)
 
 static int zn_config(struct net_device *dev, struct ifmap *map)
 {
-	printk("%s called\n", __func__);
+	pr_debug("%s called\n", __func__);
 	return 0;
 }
 
