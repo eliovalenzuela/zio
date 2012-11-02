@@ -2,115 +2,111 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <linux/zio-user.h>
 #include <linux/zio-sock.h>
 
-#define AF_ZIO			28
-#define BUFF_SIZE		4096
+void print_help(char *name, FILE *f)
+{
+	fprintf(f, "%s: Use: \"%s [<option> ...] <ziodev>\"\n", name, name);
+	fprintf(f, "Available options:\n"
+		"   -r          raw socket\n"
+		"   -d          datagram socket (default == stream)\n"
+		"   -s <n>      channel-set\n"
+		"   -c <n>      channel\n"
+		"   -i <num>    device id (default: 0)\n"
+		"   -v          verbose to stderr\n");
+	exit(1);
+}
+
+static char buffer[1024*1024]; /* 1MB! */
 
 int main(int argc, char **argv)
 {
-	char buffer[BUFF_SIZE], *optvalue, c;
-	int file = 0;
-	int sockfd, txed = 0, rd = 0, tmp, ret;
-	int chan = 0, cset = 1, dev_id = 0, socktype = SOCK_DGRAM;
-	struct sockaddr_zio szio;
-	struct stat stat;
-	size_t ln;
+	int socktype = SOCK_STREAM;
+	int c, verbose = 0;
+	socklen_t slen;
+	int sock, rxed, txed;
+	struct sockaddr_zio zaddr;
 
-	strncpy(szio.devname, "zzero", ZIO_OBJ_NAME_LEN);
+	memset(&zaddr, 0, sizeof(zaddr));
+	zaddr.sa_family = AF_ZIO;
+	slen = sizeof(zaddr);
 
-	while ((c = getopt(argc, argv, "c:s:d:t:n:f:")) != -1) {
-		switch (c)
-		{
-		case 'c':
-			chan = atoi(optarg);
-			break;
-		case 's':
-			cset = atoi(optarg);
+	while ((c = getopt(argc, argv, "rds:c:i:v")) != -1) {
+		switch (c) {
+		case 'r':
+			socktype = SOCK_RAW;
 			break;
 		case 'd':
-			dev_id = atoi(optarg);
+			socktype = SOCK_DGRAM;
 			break;
-		case 't':
-			optvalue = optarg;
-			if (strcmp(optvalue, "dgram") == 0)
-				socktype = SOCK_DGRAM;
-			if (strcmp(optvalue, "stream") == 0)
-				socktype = SOCK_STREAM;
-			if (strcmp(optvalue, "raw") == 0)
-				socktype = SOCK_RAW;
+		case 's':
+			zaddr.cset = atoi(optarg);
 			break;
-		case 'n':
-			strncpy(szio.devname, optarg, ZIO_OBJ_NAME_LEN);
+		case 'c':
+			zaddr.chan = atoi(optarg);
 			break;
-		case 'f':
-			file = open(optarg, O_RDONLY);
+		case 'i':
+			zaddr.dev_id = atoi(optarg);
+			break;
+		case 'v':
+			verbose++;
 			break;
 		}
 	}
+	if (optind != argc - 1)
+		print_help(argv[0], stderr);
+	strncpy(zaddr.devname, argv[optind], sizeof(zaddr.devname));
 
-	printf("Sending to %s, device %d, cset %d, chan %d\n", szio.devname,
-							dev_id, cset, chan);
-
-	szio.sa_family = AF_ZIO;
-	szio.dev_id = dev_id;
-	szio.cset = cset;
-	szio.chan = chan;
-
-	sockfd = socket(AF_ZIO, socktype, 0);
-	if (sockfd < 0){
-		printf("Error creating socket: %s\n", strerror(errno));
-		return -1;
+	sock = socket(AF_ZIO, socktype, 0);
+	if (sock < 0){
+		fprintf(stderr, "%s: socket(PF_ZIO): %s\n",
+			argv[0], strerror(errno));
+		exit(1);
+	}
+	/* To send we must use connect, not bind */
+	if (connect(sock, (struct sockaddr *)&zaddr, slen)) {
+		fprintf(stderr, "%s: connect(PF_ZIO): %s\n",
+			argv[0], strerror(errno));
+		exit(1);
+	}
+	if (verbose) {
+		fprintf(stderr, "%s: connected to \"%.12s\","
+			" id 0x%04x, cset 0x%04x, chan 0x%04x\n", argv[0],
+			zaddr.devname, zaddr.dev_id, zaddr.cset, zaddr.chan);
 	}
 
-	if (connect(sockfd, (struct sockaddr *)&szio, sizeof(szio)) < 0){
-		printf("Error connecting socket: %s\n", strerror(errno));
-		return -2;
-	}
-
-
-	if (file != 0){
-		tmp = fstat(file, &stat);
-		if (tmp < 0){
-			printf("stat error: %s\n", strerror(errno));
-			return -3;
+	while (1){
+		/* stdin is accesses with read() to prevent buffering */
+		rxed = read(STDIN_FILENO, buffer, sizeof(buffer));
+		if (rxed == 0)
+			break;
+		if (rxed < 0 && errno == EINTR)
+			continue;
+		if (rxed < 0) {
+			fprintf(stderr, "%s: read(stdin): %s\n", argv[0],
+				strerror(errno));
+			exit(1);
 		}
-		ln = stat.st_size;
-		while (rd < ln){
-			tmp = read(file, buffer, BUFF_SIZE);
-			rd += tmp;
-			while (txed < tmp){
-				ret = send(sockfd, buffer + txed,
-							BUFF_SIZE - txed, 0);
-				if (ret < 0){
-					printf("Error sending data: %s\n",
-							strerror(errno));
-					return -4;
-				}
-				txed += ret;
-			}
-			printf("Sent %d bytes\n", txed);
-			txed = 0;
+		if (verbose)
+			fprintf(stderr, "%s: sending %i bytes to \"%.12s\","
+				" id %0x084x, cset 0x%04x, chan 0x%04x\n",
+				argv[0], rxed, zaddr.devname, zaddr.dev_id,
+				zaddr.cset, zaddr.chan);
+		txed = sendto(sock, buffer, rxed, 0,
+			      (struct sockaddr *)&zaddr, sizeof(zaddr));
+		if (txed < 0) {
+			fprintf(stderr, "%s: sendto(%s-%x.%i.%i): %s\n",
+				argv[0], zaddr.devname, zaddr.dev_id,
+				zaddr.cset, zaddr.chan, strerror(errno));
 		}
-
-
-	} else {
-get_input:	fgets(buffer, BUFF_SIZE, stdin);
-		ln = strlen(buffer) - 1;
-		if (buffer[ln] == '\n')
-			buffer[ln] = '\0';
-		printf("Sending %s %d bytes...", buffer, ln);
-		txed = send(sockfd, buffer, ln, 0);
-		printf("sent %d bytes.\n", txed);
-		goto get_input;
+		if (txed != rxed)
+			fprintf(stderr, "%s: sendto(): sent %i out of %i\n",
+				argv[0], txed, rxed);
 	}
-
+	close(sock);
 	return 0;
 }
