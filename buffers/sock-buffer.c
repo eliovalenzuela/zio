@@ -79,7 +79,7 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 	struct zn_instance *zni = to_zni(bi);
 	struct zn_item *item;
 	struct sk_buff *skb;
-	struct zio_cb *cb;
+	struct zn_cb *cb;
 	void *ptr;
 
 	item = kmem_cache_zalloc(zn_block_memcache, gfp);
@@ -113,7 +113,7 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 	zio_set_ctrl(&item->block, ctrl);
 
 	ptr = &item->block;
-	cb = (struct zio_cb *)skb->cb;
+	cb = (struct zn_cb *)skb->cb;
 	cb->zcb.block = ptr;
 
 	return &item->block;
@@ -130,7 +130,7 @@ static void zn_free_block(struct zio_bi *bi, struct zio_block *block)
 {
 	struct zn_item *item;
 
-	item = to_item(block);
+	item = to_zn_item(block);
 	kfree_skb(item->skb);
 	zio_free_control(zio_get_ctrl(block));
 	kmem_cache_free(zn_block_memcache, item);
@@ -140,7 +140,7 @@ static void zn_free_block(struct zio_bi *bi, struct zio_block *block)
 static int zn_store_block(struct zio_bi *bi, struct zio_block *block)
 {
 	struct zn_instance *zni = to_zni(bi);
-	struct zn_item *item = to_item(block);
+	struct zn_item *item = to_zn_item(block);
 	struct sk_buff *skb;
 	int ret;
 

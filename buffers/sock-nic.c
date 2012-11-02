@@ -55,10 +55,10 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct zn_priv *priv = netdev_priv(dev);
 	struct net_device_stats *stats = &priv->stats;
-	struct zio_sock *zsk;
-	struct zio_dest *d;
+	struct zn_sock *zsk;
+	struct zn_dest *d;
 	struct zio_block *block;
-	struct zio_cb *cb = (struct zio_cb *)skb->cb;
+	struct zn_cb *cb = (struct zn_cb *)skb->cb;
 
 	printk("%s called\n", __func__);
 
@@ -71,7 +71,7 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	zsk = cb->zcb.zsk;
 	block = cb->zcb.block;
 
-	if (cb->zcb.flags & ZSOCK_SENDTO)
+	if (cb->zcb.flags & ZN_SOCK_SENDTO)
 		d = &zsk->sendto_chan;
 	else
 		d = &zsk->connected_chan;
