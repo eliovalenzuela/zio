@@ -4,8 +4,8 @@
 #define __ZIO_H__
 
 /* ZIO_VERSION: is a zio_class attribute to identify the framework version*/
-#define ZIO_MAJOR_VERSION 0
-#define ZIO_MINOR_VERSION 7
+#define ZIO_MAJOR_VERSION 1
+#define ZIO_MINOR_VERSION 0
 
 /*
  * ZIO_OBJ_NAME_LEN is the name's length used for registered objects

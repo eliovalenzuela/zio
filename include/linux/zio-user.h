@@ -47,7 +47,7 @@ struct zio_ctrl_attr {
 };
 
 /*
- * The sockaddr_zio structure is used for PF_ZIO operation. However,
+ * The zio_addr structure is sockaddr_zio for PF_ZIO operation. However,
  * we don't want to include socket-specific headers here, so just
  * know that sa_family is a 16-bit number. For this reason we don't
  * call it sockaddr_zio, which will be defined elsewhere with correct types.
@@ -58,10 +58,24 @@ struct zio_addr {
 	uint8_t host_type;	/* 0 == local, 1 == MAC, ... */
 	uint8_t filler;
 	uint8_t hostid[8];	/* MAC or other info */
-	char devname[ZIO_OBJ_NAME_LEN];
 	uint32_t dev_id;	/* Driver-specific id */
 	uint16_t cset;		/* index of channel-set within device */
 	uint16_t chan;		/* index of channel within cset */
+	char devname[ZIO_OBJ_NAME_LEN];
+};
+
+/*
+ * Extensions to the control (used in rare cases) use a TLV structure
+ * that is made up of 16-byte lumps. The length is a number of lumps
+ * (32 bits are overkill, but we want the payload to be 64-bit aligned).
+ * Type 0 means "nothing more". Type 1 means "read more data" so
+ * the users can make a single read() to get all the rest. More
+ * information about how to use will be added to the manual.
+ */
+struct zio_tlv {
+	uint32_t type;		/* low-half is globally assigned */
+	uint32_t length;	/* number of lumps, including this one */
+	uint8_t payload[8];
 };
 
 /*
@@ -106,7 +120,8 @@ struct zio_control {
 	struct zio_ctrl_attr attr_trigger;
 
 	/* byte 496 */
-	uint8_t __fill_end[ZIO_CONTROL_SIZE - 496];
+	struct zio_tlv tvl[1];
+	/* byte 512: we are done */
 };
 
 /* The following flags are used in the control structure */
