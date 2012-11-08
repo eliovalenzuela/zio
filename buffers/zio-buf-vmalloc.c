@@ -26,14 +26,12 @@
 
 /*
  * We export a linear buffer to user space, for a single mmap call.
- * This is a circular buffer implementation, where data blocks are stuck
- * one near the other
+ * The circular buffer is managed by the ZIO first-fit allocator
  */
 struct zbk_instance {
 	struct zio_bi bi;
-	struct list_head list; /* item list */
-	/* head and tail are offsets, as tail goes to ctrl->data_offset */
-	unsigned long head, tail;
+	struct list_head list; /* items, one per block */
+	struct zio_ffa *ffa;
 	void *data;
 	unsigned long size;
 };
@@ -47,6 +45,8 @@ struct zbk_item {
 	struct zio_block block;
 	struct list_head list;	/* item list */
 	struct zbk_instance *instance;
+	unsigned long begin;
+	size_t len; /* block.datalen may change, so save this */
 };
 #define to_item(block) container_of(block, struct zbk_item, block);
 
@@ -69,51 +69,6 @@ struct zio_sysfs_operations zbk_sysfs_ops = {
 	.conf_set = zbk_conf_set,
 };
 
-/* Simple circular-buffer allocator for data */
-static inline long zbk_alloc_data(struct zbk_instance *zbki, size_t size)
-{
-	long res;
-	unsigned long next;
-
-	spin_lock(&zbki->bi.lock);
-	res = zbki->head; /* most likely */
-	next = zbki->head + size;
-
-	if (unlikely(next > zbki->size)) {
-		/* wrap */
-		if (unlikely(zbki->tail < size))
-			goto out_oom;
-		res = 0;
-		zbki->head = size;
-		goto out;
-	}
-	if (unlikely(zbki->head < zbki->tail)) {
-		if (unlikely(next > zbki->tail))
-			goto out_oom;
-		zbki->head = next;
-		goto out;
-	}
-	/* easy case */
-	zbki->head = next;
-out:
-	spin_unlock(&zbki->bi.lock);
-	return res;
-out_oom:
-	spin_unlock(&zbki->bi.lock);
-	return -1;
-}
-
-static inline void zbk_free_data(struct zbk_instance *zbki, long offset,
-				 size_t size)
-{
-	spin_lock(&zbki->bi.lock);
-	if (unlikely(offset == 0))
-		zbki->tail = size;
-	else
-		zbki->tail += size;
-	spin_unlock(&zbki->bi.lock);
-}
-
 /* Alloc is called by the trigger (for input) or by f->write (for output) */
 static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 					 struct zio_control *ctrl,
@@ -121,27 +76,31 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 {
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zbk_item *item;
-	long offset;
+	unsigned long offset;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
 	/* alloc item and data. Control remains null at this point */
 	item = kmem_cache_alloc(zbk_slab, gfp);
-	offset = zbk_alloc_data(zbki, datalen);
-	if (!item || offset < 0)
+	offset = zio_ffa_alloc(zbki->ffa, datalen, gfp);
+	if (!item || offset == ZIO_FFA_NOSPACE)
 		goto out_free;
 	memset(item, 0, sizeof(*item));
+	item->begin = offset;
+	item->len = datalen;
 	item->block.data = zbki->data + offset;
 	item->block.datalen = datalen;
 	item->instance = zbki;
 
 	bi->chan->current_ctrl->mem_offset = offset;
 	zio_set_ctrl(&item->block, ctrl);
-
 	return &item->block;
 
 out_free:
-	kmem_cache_free(zbk_slab, item);
+	if (offset != ZIO_FFA_NOSPACE)
+		zio_ffa_free_s(zbki->ffa, offset, datalen);
+	if (item)
+		kmem_cache_free(zbk_slab, item);
 	return ERR_PTR(-ENOMEM);
 }
 
@@ -156,7 +115,7 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 	ctrl = zio_get_ctrl(block);
 	item = to_item(block);
 	zbki = item->instance;
-	zbk_free_data(zbki, ctrl->mem_offset, item->block.datalen);
+	zio_ffa_free_s(zbki->ffa, item->begin, item->len);
 	zio_free_control(ctrl);
 	kmem_cache_free(zbk_slab, item);
 }
@@ -266,24 +225,32 @@ static struct zio_bi *zbk_create(struct zio_buffer_type *zbuf,
 				 struct zio_channel *chan)
 {
 	struct zbk_instance *zbki;
+	struct zio_ffa *ffa;
+	void *data;
 	size_t size;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 
-	zbki = kzalloc(sizeof(*zbki), GFP_KERNEL);
-	if (!zbki)
-		return ERR_PTR(-ENOMEM);
 	size = 1024 * zbuf->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXKB].value;
+
+	zbki = kzalloc(sizeof(*zbki), GFP_KERNEL);
+	ffa = zio_ffa_create(0, size);
+	data = vmalloc(size);
+	if (!zbki || !ffa || !data)
+		goto out_nomem;
 	zbki->size = size;
-	zbki->data = vmalloc(size);
-	if (!zbki->data) {
-		kfree(zbki);
-		return ERR_PTR(-ENOMEM);
-	}
+	zbki->ffa = ffa;
+	zbki->data = data;
 	INIT_LIST_HEAD(&zbki->list);
 
 	/* all the fields of zio_bi are initialied by the caller */
 	return &zbki->bi;
+out_nomem:
+	kfree(zbki);
+	zio_ffa_destroy(ffa);
+	if (data)
+		vfree(data);
+	return ERR_PTR(-ENOMEM);
 }
 
 /* destroy is called by zio on channel removal or if it changes buffer type */
@@ -301,6 +268,7 @@ static void zbk_destroy(struct zio_bi *bi)
 		zbk_free_block(&zbki->bi, &item->block);
 	}
 	vfree(zbki->data);
+	zio_ffa_destroy(zbki->ffa);
 	kfree(zbki);
 }
 
