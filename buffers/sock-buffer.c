@@ -1,9 +1,9 @@
 /* Simone Nellaga, GNU GPLv2 or later */
 
 /*
- *This a buffer implementation for the new PF_ZIO protocol family, allowing
- * users to exchange data with the framework using sockets. So it implements a
- * new software network interface, and a new socket-layer logic.
+ * This a buffer implementation for the PF_ZIO protocol family.
+ * It allows users to task with ZIO using sockets. It links with
+ * sock-nic (network interface) and sock-syscall (recv/send etc).
  */
 
 #include <linux/kernel.h>
@@ -15,25 +15,22 @@
 #include <linux/fs.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/net.h>
 #include <net/sock.h>
-#include <net/tcp_states.h> /* TCP_ESABLISHED is needed for SOCK_STREAM */
 
-#define __ZIO_INTERNAL__
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-user.h>
 #include <linux/zio-sock.h>
 
-
+/* We have one attribute only, and we silently accept the changes */
 static ZIO_ATTR_DEFINE_STD(ZIO_BUF, zn_std_zattr) = {
-	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0x0, 16),
+	ZIO_ATTR(zbuf, ZIO_ATTR_ZBUF_MAXLEN, S_IRUGO | S_IWUGO, 0,
+		 ZN_DEFAULT_BUFFER_LENGTH),
 };
-
 static int zn_conf_set(struct device *dev, struct zio_attribute *zattr,
 		uint32_t  usr_val)
 {
@@ -43,6 +40,7 @@ struct zio_sysfs_operations zn_sysfs_ops = {
 	.conf_set = zn_conf_set,
 };
 
+/* memcache for allocating buffer items */
 static struct kmem_cache *zn_block_memcache;
 
 /* Open socket list */
@@ -58,7 +56,7 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 	struct sk_buff *skb;
 	struct zn_cb *cb;
 	void *ptr;
-	const int headspace = sizeof(struct ethhdr) + NET_ZIO_ALIGN
+	const int headspace = sizeof(struct ethhdr) + NET_IP_ALIGN
 		+ ZIO_CONTROL_SIZE;
 
 	item = kmem_cache_zalloc(zn_block_memcache, gfp);
