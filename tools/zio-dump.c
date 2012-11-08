@@ -18,12 +18,13 @@
 
 unsigned char buf[1024*1024];
 char *prgname;
-int do_print_attr;
+int opt_print_attr;
+int opt_print_memaddr;
 
 
 void print_attr_set(char *name, int nattr, uint32_t mask, uint32_t *val)
 {
-	int all = (do_print_attr == 2);
+	int all = (opt_print_attr == 2);
 	int i;
 
 	if (!(all || mask))
@@ -117,7 +118,9 @@ void read_channel(int cfd, int dfd, FILE *log)
 	       (long long)ctrl.tstamp.secs,
 	       (long long)ctrl.tstamp.ticks,
 	       (long long)ctrl.tstamp.bins);
-	if (do_print_attr)
+	if (opt_print_memaddr)
+		printf("Ctrl: mem_offset %08x\n", ctrl.mem_offset);
+	if (opt_print_attr)
 		print_attributes(&ctrl);
 
 	/* FIXME: some control information not being printed yet */
@@ -192,16 +195,19 @@ int main(int argc, char **argv)
 
 	prgname = argv[0];
 
-        while ((c = getopt (argc, argv, "aAc")) != -1) {
+        while ((c = getopt (argc, argv, "aAcm")) != -1) {
 		switch(c) {
 		case 'a':
-			do_print_attr = 1;
+			opt_print_attr = 1;
 			break;
 		case 'A':
-			do_print_attr = 2;
+			opt_print_attr = 2;
 			break;
 		case 'c':
 			combined = 1;
+			break;
+		case 'm':
+			opt_print_memaddr = 1;
 			break;
 		default:
 			help(prgname);
