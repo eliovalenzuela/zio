@@ -35,7 +35,7 @@
 
 @setchapternewpage off
 
-@set update-month February 2012
+@set update-month November 2012
 
 @finalout
 
@@ -43,7 +43,7 @@
 @title ZIO User Manual
 @subtitle @value{update-month}
 @subtitle A kernel framework for laboratory I/O
-@author Alessandro Rubini and Federico Vaga for CERN
+@author Alessandro Rubini and Federico Vaga for CERN (BE-CO-HT)
 @end titlepage
 @headings single
 
@@ -61,15 +61,17 @@
 @node Top
 @top Introduction
 
-ZIO is meant to be ``the ultimate I/O framework.  It is being developed
+ZIO plans to be ``the ultimate I/O framework''.  It is being developed
 on the open hardware repository at @url{http://www.ohwr.org/projects/zio}.
 
 The framework is meant to offer a flexible interface for the
 development of input and output drivers for very-high-bandwidth
-devices with high-definition time stamps.
+devices with high-definition time stamps and a uniform meta-data
+representation.
 
 The version at time of this writing is known to compile and run with
 kernels 2.6.34 onwards.
+@c FIXME: versions
 @cindex kernel, supported versions
 
 @menu
