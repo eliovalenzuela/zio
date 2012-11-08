@@ -8,10 +8,11 @@
 #define PF_ZIO			28
 #define AF_ZIO			PF_ZIO
 
-#ifndef __KERNEL__ /* For user-space, define sockaddr_zio canonically */
+#ifndef __KERNEL__
 #include <sys/socket.h>
 #include <stdint.h>
 
+/* For user-space, define sockaddr_zio canonically, with sa_family_t */
 struct sockaddr_zio {
 	sa_family_t sa_family;
 	uint8_t host_type;	/* 0 == local, 1 == MAC, ... */
@@ -28,13 +29,13 @@ struct sockaddr_zio {
 #include <net/sock.h>
 #include <linux/zio-buffer.h>
 
+#define ZN_DEFAULT_BUFFER_LENGTH	16
+
 #define ZN_SOCK_CONNECTED	0x1
 #define ZN_SOCK_BOUND		0x2
 #define ZN_SOCK_SENDTO		0x4
 #define ZN_SOCK_DEV_BOUND	0x8
 #define ZN_SOCK_CSET_BOUND	0x10
-
-#define NET_ZIO_ALIGN		2
 
 /* FIXME: this is only used in sock-syscall.c */
 struct zn_dest {
@@ -46,9 +47,9 @@ struct zn_dest {
 	struct zio_ti *ti;
 };
 
+/* pfzio-specific socket instance */
 struct zn_sock {
 	struct sock sk;
-	/*Add protocol specific member here*/
 	struct zn_dest connected_chan;
 	struct zn_dest sendto_chan;
 	struct zio_block *active_block;
