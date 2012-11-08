@@ -291,6 +291,22 @@ static inline unsigned int zio_get_n_chan_enabled(struct zio_cset *cset) {
 void zio_trigger_data_done(struct zio_cset *cset);
 void zio_trigger_abort(struct zio_cset *cset);
 
+/*
+ * Misc library-like code, from zio-misc.c
+ */
+
+/* first-fit allocator */
+struct zio_ffa *zio_ffa_create(unsigned long begin, unsigned long end);
+void zio_ffa_destroy(struct zio_ffa *ffa);
+#define ZIO_FFA_NOSPACE ((unsigned long)-1) /* caller ensures -1 is invalid */
+unsigned long zio_ffa_alloc(struct zio_ffa *ffa, size_t size, gfp_t gfp);
+void zio_ffa_free_s(struct zio_ffa *ffa, unsigned long addr, size_t size);
+void zio_ffa_dump(struct zio_ffa *ffa); /* diagnostics */
+void zio_ffa_reset(struct zio_ffa *ffa);
+
+/*
+ * Internal code is for the core, it should not be needed by triggers etc
+ */
 #ifdef __ZIO_INTERNAL__
 
 /* This list is used in the core to keep track of registered objects */
