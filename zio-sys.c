@@ -1839,10 +1839,10 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	cset->head.zobj_type = ZIO_CSET;
 
 	/* Get an available minor base */
-	err = __zio_minorbase_get(cset);
-	if (err) {
+	err = zio_minorbase_get(cset);
+	if (err < 0) {
 		pr_err("ZIO: no minors available\n");
-		return -EBUSY;
+		return err;
 	}
 
 	/* Copy from template, initialize and verify zio attributes */
@@ -1949,7 +1949,7 @@ out_zattr_check:
 out_zattr_create:
 	__zattr_set_free(&cset->zattr_set);
 out_zattr_copy:
-	__zio_minorbase_put(cset);
+	zio_minorbase_put(cset);
 	return err;
 }
 
@@ -1984,8 +1984,8 @@ static void cset_unregister(struct zio_cset *cset)
 	device_unregister(&cset->head.dev);
 	zattr_set_remove(&cset->head);
 	__zattr_set_free(&cset->zattr_set);
-	/* Release a group of minors */
-	__zio_minorbase_put(cset);
+	/* Release the group of minors */
+	zio_minorbase_put(cset);
 }
 
 /*
@@ -2322,12 +2322,10 @@ static int __init zio_init(void)
 	int err;
 
 	/* Some compile-time checks, so developers are free to hack around */
-	BUILD_BUG_ON_NOT_POWER_OF_2(ZIO_CHAN_MAXNUM);
-	BUILD_BUG_ON_NOT_POWER_OF_2(ZIO_CSET_MAXNUM);
-	BUILD_BUG_ON(ZIO_CSET_MAXNUM * ZIO_CHAN_MAXNUM * 2 > MINORMASK);
 	BUILD_BUG_ON(_ZIO_DEV_ATTR_STD_NUM != ARRAY_SIZE(zio_zdev_attr_names));
 	BUILD_BUG_ON(_ZIO_BUF_ATTR_STD_NUM != ARRAY_SIZE(zio_zbuf_attr_names));
 	BUILD_BUG_ON(_ZIO_TRG_ATTR_STD_NUM != ARRAY_SIZE(zio_trig_attr_names));
+	BUILD_BUG_ON(ZIO_NR_MINORS > MINORMASK + 1);
 
 	err = zio_slab_init();
 	if (err)
@@ -2337,7 +2335,7 @@ static int __init zio_init(void)
 	if (err)
 		goto out;
 	/* Initialize char device */
-	err = __zio_register_cdev();
+	err = zio_register_cdev();
 	if (err)
 		goto out_cdev;
 
@@ -2371,7 +2369,7 @@ static void __exit zio_exit(void)
 	zio_default_buffer_exit();
 
 	/* Remove char device */
-	__zio_unregister_cdev();
+	zio_unregister_cdev();
 	/* Remove ZIO bus */
 	bus_unregister(&zio_bus_type);
 	zio_slab_exit();

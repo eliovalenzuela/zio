@@ -60,26 +60,21 @@ static struct class zio_class = {
 };
 
 /* Retrieve a channel from one of its minors */
-static struct zio_channel *__zio_minor_to_chan(dev_t mm)
+static struct zio_channel *zio_minor_to_chan(int minor)
 {
 	struct zio_cset *zcset;
-	dev_t cset_base, chan_minor;
-	int found = 0;
+	int chindex, found = 0;
 
-	/* Extract cset minor base */
-	chan_minor = mm & (ZIO_NMAX_CSET_MINORS-1);
-	cset_base = mm & (~(ZIO_NMAX_CSET_MINORS-1));
-
-	/* Look for this minor base*/
 	list_for_each_entry(zcset, &zstat->list_cset, list_cset) {
-		if (cset_base == zcset->basedev) {
+		if (minor >= zcset->minor && minor <= zcset->maxminor ) {
 			found = 1;
 			break;
 		}
 	}
 	if (!found)
 		return NULL;
-	return &zcset->chan[chan_minor/2];
+	chindex = (minor - zcset->minor) / 2;
+	return zcset->chan + chindex;
 }
 
 static inline int zio_device_get(dev_t devt)
@@ -90,7 +85,7 @@ static inline int zio_device_get(dev_t devt)
 	 * FIXME there is a little concurrency; to resolve this, get the owner
 	 * from device list by searching by minor
 	 */
-	chan = __zio_minor_to_chan(devt);
+	chan = zio_minor_to_chan(MINOR(devt));
 	if (!chan) {
 		pr_err("ZIO: can't retrieve channel for minor %i\n",
 		       MINOR(devt));
@@ -102,7 +97,7 @@ static inline void zio_device_put(dev_t devt)
 {
 	struct zio_channel *chan;
 
-	chan = __zio_minor_to_chan(devt);
+	chan = zio_minor_to_chan(MINOR(devt));
 	/* chan can't be NULL because __zio_device_get() found it */
 	module_put(chan->cset->zdev->owner);
 }
@@ -120,7 +115,7 @@ static int zio_f_open(struct inode *ino, struct file *f)
 		return -ENODEV;
 
 	minor = iminor(ino);
-	chan = __zio_minor_to_chan(ino->i_rdev);
+	chan = zio_minor_to_chan(MINOR(ino->i_rdev));
 	if (!chan) {
 		pr_err("%s: can't retrieve channel for minor %i\n",
 			__func__, minor);
@@ -183,25 +178,24 @@ static const struct file_operations zfops = {
 	.open = zio_f_open,
 };
 
-int __zio_minorbase_get(struct zio_cset *zcset)
+/* set the base minor for a cset*/
+int zio_minorbase_get(struct zio_cset *zcset)
 {
-	int i;
+	unsigned long i;
+	int nminors = zcset->n_chan * 2;
 
-	i = find_first_zero_bit(zstat->cset_minors_mask, ZIO_CSET_MAXNUM);
-	if (i >= ZIO_CSET_MAXNUM)
-		return 1;
-	set_bit(i, zstat->cset_minors_mask);
-	/* set the base minor for a cset*/
-	zcset->basedev = zstat->basedev + (i * ZIO_NMAX_CSET_MINORS);
-	pr_debug("%s:%i BASEMINOR 0x%x\n", __func__, __LINE__, zcset->basedev);
+	zio_ffa_reset(zstat->minors); /* always start from zero */
+	i = zio_ffa_alloc(zstat->minors, nminors, GFP_KERNEL);
+	if (i == ZIO_FFA_NOSPACE)
+		return -ENOMEM;
+	pr_info("asked for %i minors, got %li\n", nminors, i);
+	zcset->minor = i;
+	zcset->maxminor = i + nminors - 1;
 	return 0;
 }
-void __zio_minorbase_put(struct zio_cset *zcset)
+void zio_minorbase_put(struct zio_cset *zcset)
 {
-	int i;
-
-	i = (zcset->basedev - zstat->basedev) / ZIO_NMAX_CSET_MINORS;
-	clear_bit(i, zstat->cset_minors_mask);
+	zio_ffa_free_s(zstat->minors, zcset->minor, zcset->n_chan * 2);
 }
 
 /*
@@ -214,7 +208,7 @@ int zio_create_chan_devices(struct zio_channel *chan)
 	dev_t devt_c, devt_d;
 
 
-	devt_c = chan->cset->basedev + chan->index * 2;
+	devt_c = zstat->basedev + chan->cset->minor + chan->index * 2;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_c);
 	chan->ctrl_dev = device_create(&zio_class, NULL, devt_c, &chan->flags,
 			"%s-%i-%i-ctrl",
@@ -253,7 +247,7 @@ void zio_destroy_chan_devices(struct zio_channel *chan)
 	device_destroy(&zio_class, chan->ctrl_dev->devt);
 }
 
-int __zio_register_cdev()
+int zio_register_cdev()
 {
 	int err;
 
@@ -263,34 +257,32 @@ int __zio_register_cdev()
 		goto out;
 	}
 	/* alloc to zio the maximum number of minors usable in ZIO */
-	err = alloc_chrdev_region(&zstat->basedev, 0,
-			ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS, "zio");
+	zstat->minors = zio_ffa_create(0, ZIO_NR_MINORS);
+	err = alloc_chrdev_region(&zstat->basedev, 0, ZIO_NR_MINORS, "zio");
 	if (err) {
 		pr_err("%s: unable to allocate region for %i minors\n",
-			__func__, ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
+		       __func__, ZIO_NR_MINORS);
 		goto out;
 	}
 	/* all ZIO's devices, buffers and triggers has zfops as f_op */
 	cdev_init(&zstat->chrdev, &zfops);
 	zstat->chrdev.owner = THIS_MODULE;
-	err = cdev_add(&zstat->chrdev, zstat->basedev,
-			ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
+	err = cdev_add(&zstat->chrdev, zstat->basedev, ZIO_NR_MINORS);
 	if (err)
 		goto out_cdev;
 	INIT_LIST_HEAD(&zstat->list_cset);
 	return 0;
 out_cdev:
-	unregister_chrdev_region(zstat->basedev,
-			ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
+	unregister_chrdev_region(zstat->basedev, ZIO_NR_MINORS);
 out:
 	class_unregister(&zio_class);
+	zio_ffa_destroy(zstat->minors);
 	return err;
 }
-void __zio_unregister_cdev()
+void zio_unregister_cdev()
 {
 	cdev_del(&zstat->chrdev);
-	unregister_chrdev_region(zstat->basedev,
-				ZIO_CSET_MAXNUM * ZIO_NMAX_CSET_MINORS);
+	unregister_chrdev_region(zstat->basedev, ZIO_NR_MINORS);
 	class_unregister(&zio_class);
 }
 

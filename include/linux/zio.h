@@ -32,11 +32,7 @@
 
 #include <linux/zio-sysfs.h>
 
-/* These two maxima are kept low by now to test overflow situations */
-#define ZIO_CSET_MAXNUM 16
-#define ZIO_CHAN_MAXNUM 16
-
-#define ZIO_NMAX_CSET_MINORS (ZIO_CHAN_MAXNUM * 2)
+#define ZIO_NR_MINORS  (1<<16) /* Ask for 64k minors: no harm done... */
 
 /* Name the data structures */
 struct zio_device; /* both type (a.k.a. driver) and instance (a.k.a. device) */
@@ -196,7 +192,7 @@ struct zio_cset {
 	void			*priv_d;	/* private for the device */
 
 	struct list_head	list_cset;	/* for cset global list */
-	dev_t			basedev;	/* base for the minors */
+	int			minor, maxminor;
 	char			*default_zbuf;
 	char			*default_trig;
 
@@ -325,14 +321,8 @@ struct zio_object_list_item {
 struct zio_status {
 	/* a pointer to set up standard ktype with create */
 	struct kobject		*kobj;
-	/*
-	 * The bmask represent the minors region for zio; each bit is
-	 * a block of minors available for a single cset. When a new cset
-	 * is declared, zio look for the first available block of minors:
-	 * set 1 to the correspondent bit on bitmask to set the block
-	 * as busy
-	 */
-	DECLARE_BITMAP(cset_minors_mask, ZIO_CSET_MAXNUM);
+	/* The minor numbers are allocated with the first-fit allocator. */
+	struct zio_ffa		*minors;
 	struct cdev		chrdev;
 	dev_t			basedev;
 	spinlock_t		lock;
@@ -347,22 +337,26 @@ struct zio_status {
 };
 
 extern struct zio_status zio_global_status;
-int __zio_minorbase_get(struct zio_cset *zcset);
-void __zio_minorbase_put(struct zio_cset *zcset);
 
-int __zio_register_cdev(void);
-void __zio_unregister_cdev(void);
+/* Functions in zio-cdev.c */
+int zio_minorbase_get(struct zio_cset *zcset);
+void zio_minorbase_put(struct zio_cset *zcset);
+
+int zio_register_cdev(void);
+void zio_unregister_cdev(void);
 
 int zio_create_chan_devices(struct zio_channel *zchan);
 void zio_destroy_chan_devices(struct zio_channel *zchan);
 
+int zio_init_buffer_fops(struct zio_buffer_type *zbuf);
+int zio_fini_buffer_fops(struct zio_buffer_type *zbuf);
+
+/* Exported but those that know to be the default */
 int zio_default_buffer_init(void);
 void zio_default_buffer_exit(void);
 int zio_default_trigger_init(void);
 void zio_default_trigger_exit(void);
 
-int zio_init_buffer_fops(struct zio_buffer_type *zbuf);
-int zio_fini_buffer_fops(struct zio_buffer_type *zbuf);
 
 struct zio_device *zio_find_device(char *name, uint32_t dev_id);
 
