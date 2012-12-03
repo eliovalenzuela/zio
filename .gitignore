@@ -10,8 +10,10 @@
 *.tmp
 \#*\#
 *.sh
+*.pyc
 # eclipse files
 .cproject
+.pydevproject
 .project
 .settings
 .*.d

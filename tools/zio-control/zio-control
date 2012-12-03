@@ -1,0 +1,22 @@
+#!/usr/bin/python
+"""
+@author: Federico Vaga
+@copyright: Federico Vaga 2012
+@license: GPLv2
+"""
+
+from PyQt4 import QtGui
+from ZioControlUI import Ui_zio_control
+from ZioControlHandlerUI import ZioControlHandlerUI
+import sys
+
+if __name__ == "__main__":
+    app = QtGui.QApplication(sys.argv)
+    zc_gui = QtGui.QMainWindow()
+    ui = Ui_zio_control();
+    ui.setupUi(zc_gui)
+    handle_ui = ZioControlHandlerUI(ui)
+    zc_gui.show()
+
+    sys.exit(app.exec_())
+    pass
