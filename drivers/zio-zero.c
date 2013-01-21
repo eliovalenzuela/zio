@@ -44,7 +44,7 @@ static void zzero_get_sequence(struct zio_channel *chan,
 	uint32_t *value = &chan->cset->zattr_set.ext_zattr[ZZERO_SEQ].value;
 
 	while (datalen >= 4) {
-		put_unaligned_le32((*value)++, ptr);
+		put_unaligned((*value)++, ptr);
 		datalen -= 4;
 		ptr++;
 	}
