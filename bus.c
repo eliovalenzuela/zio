@@ -77,7 +77,7 @@ static struct bus_attribute def_bus_attrs[] = {
  * zio_device_id otherwise a NULL pointer.
  */
 static const struct zio_device_id *zio_match_id(const struct zio_device_id *id,
-						const struct zio_obj_head *head)
+						struct zio_obj_head *head)
 {
 	while (id->name[0]) {
 		dev_dbg(&head->dev, "%s comparing  %s == %s\n", __func__,
@@ -96,9 +96,9 @@ static const struct zio_device_id *zio_match_id(const struct zio_device_id *id,
  *
  * It returns a zio_device_id which match with zdev
  */
-const struct zio_device_id *zio_get_device_id(const struct zio_device *zdev)
+const struct zio_device_id *zio_get_device_id(struct zio_device *zdev)
 {
-	const struct zio_driver *zdrv = to_zio_drv(zdev->head.dev.driver);
+	struct zio_driver *zdrv = to_zio_drv(zdev->head.dev.driver);
 
 	return zio_match_id(zdrv->id_table, &zdev->head);
 }

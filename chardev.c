@@ -24,20 +24,6 @@
 static DEFINE_MUTEX(zmutex);
 static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
 
-static int zio_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	unsigned long *flags ;
-
-	flags = dev_get_drvdata(dev);
-	add_uevent_var(env, "DEVMODE=%#o", (*flags & ZIO_DIR ? 0220 : 0440));
-
-	return 0;
-}
-static char *zio_devnode(struct device *dev, mode_t *mode)
-{
-	return kasprintf(GFP_KERNEL, "zio/%s", dev_name(dev));
-}
-
 /*
  * zio_cdev_class: don't use class_create to create class, as it doesn't permit
  * to insert a set of class attributes. This structure is the exact
@@ -46,8 +32,6 @@ static char *zio_devnode(struct device *dev, mode_t *mode)
 static struct class zio_cdev_class = {
 	.name		= "zio-cdev",
 	.owner		= THIS_MODULE,
-	.dev_uevent	= zio_dev_uevent,
-	.devnode	= zio_devnode,
 };
 
 /* Retrieve a channel from one of its minors */
@@ -183,7 +167,7 @@ int zio_create_chan_devices(struct zio_channel *chan)
 	devt_c = zstat->basedev + chan->cset->minor + chan->index * 2;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_c);
 	chan->ctrl_dev = device_create(&zio_cdev_class, &chan->head.dev, devt_c,
-			&chan->flags, "%s-%i-%i-ctrl",
+			"%s-%i-%i-ctrl",
 			dev_name(&chan->cset->zdev->head.dev),
 			chan->cset->index,
 			chan->index);
@@ -191,11 +175,12 @@ int zio_create_chan_devices(struct zio_channel *chan)
 		err = PTR_ERR(&chan->ctrl_dev);
 		goto out;
 	}
+	dev_set_drvdata(chan->ctrl_dev, &chan->flags);
 
 	devt_d = devt_c + 1;
 	pr_debug("%s:%d dev_t=0x%x\n", __func__, __LINE__, devt_d);
 	chan->data_dev = device_create(&zio_cdev_class, &chan->head.dev, devt_d,
-			&chan->flags, "%s-%i-%i-data",
+			"%s-%i-%i-data",
 			dev_name(&chan->cset->zdev->head.dev),
 			chan->cset->index,
 			chan->index);
@@ -203,6 +188,7 @@ int zio_create_chan_devices(struct zio_channel *chan)
 		err = PTR_ERR(&chan->data_dev);
 		goto out_data;
 	}
+	dev_set_drvdata(chan->data_dev, &chan->flags);
 
 	return 0;
 
@@ -441,7 +427,7 @@ static int zio_generic_mmap(struct file *f, struct vm_area_struct *vma)
 {
 	struct zio_f_priv *priv = f->private_data;
 	struct zio_bi *bi = priv->chan->bi;
-	const struct vm_operations_struct *v_op = bi->v_op;
+	struct vm_operations_struct *v_op = bi->v_op;
 
 	if (!v_op)
 		return -ENODEV; /* according to man page */
