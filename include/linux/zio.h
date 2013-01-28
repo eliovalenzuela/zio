@@ -328,6 +328,11 @@ static inline unsigned int zio_control_size(struct zio_channel *chan)
 	return __ZIO_CONTROL_SIZE;
 }
 
+/* We have an optional misc device that returns all control blocks */
+int zio_sniffdev_init(void);
+void zio_sniffdev_exit(void);
+void zio_sniffdev_add(struct zio_control *ctrl);
+
 /*
  * Misc library-like code, from zio-misc.c
  */

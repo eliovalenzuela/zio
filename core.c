@@ -41,8 +41,14 @@ struct zio_control *zio_alloc_control(gfp_t gfp)
 }
 EXPORT_SYMBOL(zio_alloc_control);
 
+/* At control release time, we can copy it to sniffers, if configured so */
+void __weak zio_sniffdev_add(struct zio_control *ctrl)
+{
+}
+
 void zio_free_control(struct zio_control *ctrl)
 {
+	zio_sniffdev_add(ctrl);
 	kmem_cache_free(zio_ctrl_slab, ctrl);
 }
 EXPORT_SYMBOL(zio_free_control);
@@ -78,6 +84,17 @@ struct zio_device *zio_find_device(char *name, uint32_t dev_id)
 }
 EXPORT_SYMBOL(zio_find_device);
 
+/* if CONFIG_ZIO_SNIFF_DEV code in sniff-dev.c overrides the following two */
+int __weak zio_sniffdev_init(void)
+{
+	return 0;
+}
+void __weak zio_sniffdev_exit(void)
+{
+	return;
+}
+
+/* Oerall init and exit */
 static int __init zio_init(void)
 {
 	int err;
@@ -124,6 +141,10 @@ static int __init zio_init(void)
 	err = zio_default_trigger_init();
 	if (err)
 		pr_warning("%s: cannot register default trigger\n", __func__);
+	if (zio_sniffdev_init())
+		pr_warning("%s: cannot initialize /dev/zio-sniff.ctrl\n",
+			   __func__);
+
 	pr_info("zio-core had been loaded\n");
 	return 0;
 
@@ -136,6 +157,7 @@ out:
 
 static void __exit zio_exit(void)
 {
+	zio_sniffdev_exit();
 	zio_default_trigger_exit();
 	zio_default_buffer_exit();
 
