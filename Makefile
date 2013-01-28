@@ -4,6 +4,11 @@ zio-y := core.o chardev.o sysfs.o misc.o
 zio-y += bus.o objects.o helpers.o
 zio-y += buffers/zio-buf-kmalloc.o triggers/zio-trig-user.o
 
+# Waiting for Kconfig...
+CONFIG_ZIO_SNIFF_DEV:=y
+
+zio-$(CONFIG_ZIO_SNIFF_DEV) += sniff-dev.o
+
 obj-m = zio.o
 obj-m += drivers/
 obj-m += buffers/
