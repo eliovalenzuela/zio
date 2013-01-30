@@ -147,7 +147,10 @@ void read_channel(int cfd, int dfd, FILE *log)
 		print_attributes(&ctrl);
 
 	/* FIXME: some control information not being printed yet */
-
+	if (dfd < 0) {
+		/* No data (i.e., we are sniffing control-only) */
+		return;
+	}
 	if (cfd != dfd) {
 		/* different files, we expect _only_ this data */
 		i = read(dfd, buf, sizeof(buf));
@@ -203,7 +206,9 @@ void help(char *name)
 	fprintf(stderr,
 		"       -a           dump attributes too\n"
 		"       -A           dump all attributes\n"
-		"       -c           control-only or combined (ctrl+data)\n"
+		"       -c           1 control only or combined (ctrl+data)\n"
+		"       -s           sniff-device (array of controls)\n"
+		"       -m           print memory address (for mmap)\n"
 		"       -n <number>  stop after that many blocks\n");
 	exit(1);
 }
@@ -217,12 +222,12 @@ int main(int argc, char **argv)
 	int *dfd; /* data file descriptors */
 	fd_set control_set, ready_set;
 	int c, i, j, maxfd, ndev;
-	int combined = 0;
+	int combined = 0, sniff = 0;
 	unsigned long nblocks = -1; /* forever by default */
 
 	prgname = argv[0];
 
-	while ((c = getopt (argc, argv, "aAcmn:")) != -1) {
+	while ((c = getopt (argc, argv, "aAcsmn:")) != -1) {
 		switch(c) {
 		case 'a':
 			opt_print_attr = 1;
@@ -232,6 +237,10 @@ int main(int argc, char **argv)
 			break;
 		case 'c':
 			combined = 1;
+			break;
+		case 's':
+			combined = 1; /* sniff is a special combined case */
+			sniff = 1;
 			break;
 		case 'm':
 			opt_print_memaddr = 1;
@@ -331,8 +340,12 @@ int main(int argc, char **argv)
 			strerror(errno));
 		exit(1);
 	}
+	if (sniff)
+		dfd[0] = -1;
+	else
+		dfd[0] = cfd[0];
 	while (nblocks) {
-		read_channel(cfd[0], cfd[0], f);
+		read_channel(cfd[0], dfd[0], f);
 		if (nblocks > 0)
 			nblocks--;
 	}
