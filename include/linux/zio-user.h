@@ -84,6 +84,7 @@ struct zio_tlv {
  */
 #define ZIO_ALARM_LOST_BLOCK	(1 << 0)	/* It happened */
 #define ZIO_ALARM_LOST_TRIGGER	(1 << 1)	/* Same, cset-wide */
+#define ZIO_ALARM_LOST_SNIFF	(1 << 2)	/* Sniff-device specific */
 
 /*
  * The following data item is the control structure that is being exchanged
