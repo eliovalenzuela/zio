@@ -39,6 +39,7 @@ struct zbk_item {
 	struct list_head list;	/* item list */
 	struct zbk_instance *instance;
 	size_t len; /* block.datalen may change, so save this */
+	uint32_t pipestamp_alloc;
 };
 #define to_item(block) container_of(block, struct zbk_item, block)
 
@@ -90,9 +91,12 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	struct zbk_item *item;
 	struct zio_control *ctrl;
 	unsigned long flags;
+	uint32_t stamp;
 	void *data;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
+
+	__zio_pipestamp(&stamp);
 
 	/* alloc fails if we overflow the buffer size */
 	spin_lock_irqsave(&bi->lock, flags);
@@ -113,6 +117,7 @@ static struct zio_block *zbk_alloc_block(struct zio_bi *bi,
 	item->len = datalen;
 	item->instance = zbki;
 	zio_set_ctrl(&item->block, ctrl);
+	__zio_copy_pipestamp(&item->pipestamp_alloc, &stamp);
 	return &item->block;
 
 out_free:
@@ -131,6 +136,7 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 {
 	struct zbk_item *item;
 	struct zbk_instance *zbki;
+	struct zio_control *ctrl = zio_get_ctrl(block);
 	unsigned long flags;
 	int awake = 0;
 
@@ -154,7 +160,9 @@ static void zbk_free_block(struct zio_bi *bi, struct zio_block *block)
 
 out_free:
 	kfree(block->data);
-	zio_free_control(zio_get_ctrl(block));
+
+	__zio_pipestamp(&ctrl->attr_channel.std_val[ZIO_ATTR_FREE_TIME]);
+	zio_free_control(ctrl);
 	kmem_cache_free(zbk_slab, item);
 	if (awake)
 		wake_up_interruptible(&bi->q);
@@ -165,12 +173,17 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 {
 	struct zbk_instance *zbki = to_zbki(bi);
 	struct zio_channel *chan = bi->chan;
+	struct zio_control *ctrl = zio_get_ctrl(block);
 	struct zbk_item *item = to_item(block);
 	unsigned long flags;
 	int awake = 0, pushed = 0, isempty;
 	int output = (bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT;
 
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, block);
+
+	__zio_pipestamp(&ctrl->attr_channel.std_val[ZIO_ATTR_STORE_TIME]);
+	__zio_copy_pipestamp(&ctrl->attr_channel.std_val[ZIO_ATTR_ALLOC_TIME],
+			     &item->pipestamp_alloc);
 
 	/* add to the buffer instance or push to the trigger */
 	spin_lock_irqsave(&bi->lock, flags);
@@ -197,6 +210,7 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 {
 	struct zbk_item *item;
 	struct zbk_instance *zbki;
+	struct zio_control *ctrl;
 	struct zio_ti *ti;
 	struct list_head *first;
 	unsigned long flags;
@@ -215,6 +229,9 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 	item = list_entry(first, struct zbk_item, list);
 	list_del(&item->list);
 	spin_unlock_irqrestore(&bi->lock, flags);
+
+	ctrl = zio_get_ctrl(&item->block);
+	__zio_pipestamp(&ctrl->attr_channel.std_val[ZIO_ATTR_RETR_TIME]);
 
 	pr_debug("%s:%d (%p, %p)\n", __func__, __LINE__, bi, item);
 	return &item->block;
