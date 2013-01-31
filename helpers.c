@@ -130,6 +130,9 @@ void zio_arm_trigger(struct zio_ti *ti)
 	int ret;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
+
+	__zio_pipestamp(&ti->pipestamp_arm);
+
 	/* check if trigger is disabled or previous instance is pending */
 	spin_lock_irqsave(&ti->cset->lock, flags);
 	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
@@ -177,6 +180,7 @@ int zio_trigger_data_done(struct zio_cset *cset)
 
 	spin_lock_irqsave(&cset->lock, flags);
 
+	__zio_pipestamp(&cset->ti->pipestamp_done);
 	if (cset->ti->t_op->data_done)
 		rearm = cset->ti->t_op->data_done(cset);
 	else
