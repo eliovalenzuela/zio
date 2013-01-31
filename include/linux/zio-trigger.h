@@ -43,6 +43,8 @@ struct zio_ti {
 	struct zio_attribute_set		zattr_set;
 
 	const struct zio_trigger_operations	*t_op;
+	uint32_t		pipestamp_arm;
+	uint32_t		pipestamp_done;
 };
 
 /* first 4bit are reserved for zio object universal flags */
@@ -163,6 +165,14 @@ static inline int zio_generic_data_done(struct zio_cset *cset)
 		ctrl->tstamp.secs = ti->tstamp.tv_sec;
 		ctrl->tstamp.ticks = ti->tstamp.tv_nsec;
 		ctrl->tstamp.bins = ti->tstamp_extra;
+
+		/* Copy pipestamp as well (which is nop if unconfigured) */
+		__zio_copy_pipestamp(&ctrl->attr_trigger
+				     .std_val[ZIO_ATTR_TRIG_ARM_TIME],
+				     &ti->pipestamp_arm);
+		__zio_copy_pipestamp(&ctrl->attr_trigger
+				     .std_val[ZIO_ATTR_TRIG_DONE_TIME],
+				     &ti->pipestamp_done);
 
 		if (!block) {
 			ctrl->zio_alarms |= ZIO_ALARM_LOST_BLOCK;
