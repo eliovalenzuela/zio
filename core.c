@@ -145,6 +145,24 @@ static int __init zio_init(void)
 		pr_warning("%s: cannot initialize /dev/zio-sniff.ctrl\n",
 			   __func__);
 
+	if (zio_has_pipestamp) {
+		uint32_t t0 = 0, t1 = 0;
+		unsigned long tdiff;
+		int i;
+
+		/* Check how much does it take to timestamp the pipeline */
+		__zio_pipestamp(&t0);
+		for (i = 1; i < 100; i++)
+			__zio_pipestamp(&t1);
+		if (t1 >= t0)
+			tdiff = t1 - t0;
+		else
+			tdiff = 4LL * NSEC_PER_SEC - t0 + t1;
+		/* We have 6 stamps over the whole pipeline */
+		pr_info("pipeline stamping overhead: %li ns\n",
+			6 * ((tdiff + 50) / 100));
+	}
+
 	pr_info("zio-core had been loaded\n");
 	return 0;
 
