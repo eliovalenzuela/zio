@@ -36,6 +36,7 @@ const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_MAXRATE]		= "max-sample-rate",
 	[ZIO_ATTR_VREFTYPE]		= "vref-src",
 	[ZIO_ATTR_DEV_VERSION]	= "version",
+	/* We are not exporting pipestamp attributes, even when they exist */
 };
 EXPORT_SYMBOL(zio_zdev_attr_names);
 
@@ -44,6 +45,7 @@ const char zio_trig_attr_names[_ZIO_TRG_ATTR_STD_NUM][ZIO_NAME_LEN] = {
 	[ZIO_ATTR_TRIG_PRE_SAMP]	= "pre-samples",
 	[ZIO_ATTR_TRIG_POST_SAMP]	= "post-samples",
 	[ZIO_ATTR_TRIG_VERSION]		= "version",
+	/* We are not exporting pipestamp attributes, even when they exist */
 };
 EXPORT_SYMBOL(zio_trig_attr_names);
 
@@ -260,6 +262,10 @@ static int __zattr_chan_init_ctrl(struct zio_channel *chan, unsigned int start)
 		__zattr_valcpy(ctrl_attr_chan, &cset->zattr_set.std_zattr[i]);
 	for (i = 0; i < zdev->zattr_set.n_std_attr; ++i)
 		__zattr_valcpy(ctrl_attr_chan, &zdev->zattr_set.std_zattr[i]);
+
+	/* Set the mask for pipestamp, not-zero if we are stamping */
+	ctrl->attr_trigger.std_mask |= ZIO_PIPESTAMP_TRIGGER_MASK;
+	ctrl->attr_channel.std_mask |= ZIO_PIPESTAMP_CHANNEL_MASK;
 
 	/* Fix and copy attributes within channel */
 	zattr = chan->zattr_set.ext_zattr;

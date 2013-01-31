@@ -78,6 +78,10 @@ enum zio_dev_std_attr {
 	ZIO_ATTR_OFFSET,		/* microvolts */
 	ZIO_ATTR_MAXRATE,		/* hertz */
 	ZIO_ATTR_VREFTYPE,		/* source of Vref (0 = default) */
+	ZIO_ATTR_ALLOC_TIME,		/* if CONFIG_ZIO_PIPESTAMP */
+	ZIO_ATTR_STORE_TIME,		/* if CONFIG_ZIO_PIPESTAMP */
+	ZIO_ATTR_RETR_TIME,		/* if CONFIG_ZIO_PIPESTAMP */
+	ZIO_ATTR_FREE_TIME,		/* if CONFIG_ZIO_PIPESTAMP */
 
 	/* Specials attributes */
 	ZIO_ATTR_DEV_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */
@@ -87,6 +91,8 @@ enum zio_trg_std_attr {
 	ZIO_ATTR_TRIG_N_SHOTS = 0,	/* trigger programmed shots (0: infinite) */
 	ZIO_ATTR_TRIG_POST_SAMP,	/* samples after trigger fire */
 	ZIO_ATTR_TRIG_PRE_SAMP,		/* samples before trigger fire */
+	ZIO_ATTR_TRIG_ARM_TIME,		/* if CONFIG_ZIO_PIPESTAMP */
+	ZIO_ATTR_TRIG_DONE_TIME,	/* if CONFIG_ZIO_PIPESTAMP */
 
 	/* Specials attributes */
 	ZIO_ATTR_TRIG_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */
