@@ -332,6 +332,46 @@ void zio_sniffdev_exit(void);
 void zio_sniffdev_add(struct zio_control *ctrl);
 
 /*
+ * Stamping the pipeline. This fills standard attributes in the control
+ */
+#ifdef CONFIG_ZIO_PIPESTAMP
+
+#define ZIO_PIPESTAMP_CHANNEL_MASK	((1 << ZIO_ATTR_ALLOC_TIME) \
+					| (1 << ZIO_ATTR_STORE_TIME) \
+					| (1 << ZIO_ATTR_RETR_TIME) \
+					| (1 << ZIO_ATTR_FREE_TIME))
+
+#define ZIO_PIPESTAMP_TRIGGER_MASK	((1 << ZIO_ATTR_TRIG_ARM_TIME) \
+					| (1 << ZIO_ATTR_TRIG_DONE_TIME))
+
+#define zio_has_pipestamp 1
+
+#else
+
+#define ZIO_PIPESTAMP_CHANNEL_MASK	0
+#define ZIO_PIPESTAMP_TRIGGER_MASK	0
+#define zio_has_pipestamp		0
+
+#endif
+
+static inline void __zio_pipestamp(uint32_t *where)
+{
+	struct timespec ts;
+
+	if (zio_has_pipestamp) {
+		getnstimeofday(&ts);
+		*where = (ts.tv_sec & 3) * NSEC_PER_SEC + ts.tv_nsec;
+	}
+}
+
+static inline void __zio_copy_pipestamp(uint32_t *dest, uint32_t *source)
+{
+	if (zio_has_pipestamp)
+		*dest = *source;
+}
+
+
+/*
  * Misc library-like code, from zio-misc.c
  */
 

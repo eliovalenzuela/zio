@@ -6,6 +6,10 @@ zio-y += buffers/zio-buf-kmalloc.o triggers/zio-trig-user.o
 
 # Waiting for Kconfig...
 CONFIG_ZIO_SNIFF_DEV:=y
+CONFIG_ZIO_PIPESTAMP ?= n
+
+ccflags-$(CONFIG_ZIO_PIPESTAMP) += -DCONFIG_ZIO_PIPESTAMP
+
 
 zio-$(CONFIG_ZIO_SNIFF_DEV) += sniff-dev.o
 
