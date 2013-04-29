@@ -138,8 +138,8 @@ out:
 static void __bi_destroy(struct zio_buffer_type *zbuf, struct zio_bi *bi)
 {
 	pr_debug("%s\n", __func__);
-	zbuf->b_op->destroy(bi);
 	__zattr_set_free(&bi->zattr_set);
+	zbuf->b_op->destroy(bi);
 }
 static int __bi_register(struct zio_buffer_type *zbuf, struct zio_channel *chan,
 			 struct zio_bi *bi, const char *name)
@@ -230,8 +230,8 @@ out:
 static void __ti_destroy(struct zio_trigger_type *trig, struct zio_ti *ti)
 {
 	pr_debug("%s\n", __func__);
-	trig->t_op->destroy(ti);
 	__zattr_set_free(&ti->zattr_set);
+	trig->t_op->destroy(ti);
 }
 static int __ti_register(struct zio_trigger_type *trig, struct zio_cset *cset,
 			 struct zio_ti *ti, const char *name)
