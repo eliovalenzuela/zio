@@ -145,22 +145,17 @@ static int zn_store_block(struct zio_bi *bi, struct zio_block *block)
 		return ret;
 	}
 
-	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT) {
-		spin_lock(&bi->lock);
-		if (zni->nitem >=
-			bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value) {
-			goto out_unlock;
-		}
-		zni->nitem++;
-		list_add_tail(&item->list, &zni->list);
+	/* Output */
+	spin_lock(&bi->lock);
+	if (zni->nitem >= bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value) {
 		spin_unlock(&bi->lock);
-		return 0;
+		return -ENOSPC;
 	}
-
-	return -EINVAL;
-out_unlock:
+	zni->nitem++;
+	list_add_tail(&item->list, &zni->list);
 	spin_unlock(&bi->lock);
-	return -ENOSPC;
+
+	return 0;
 }
 
 /* Called by the trigger (output) */
