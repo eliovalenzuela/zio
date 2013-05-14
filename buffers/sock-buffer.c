@@ -260,10 +260,7 @@ static int __init zn_init(void)
 
 
 	/* Register memcache for the buffer */
-	zn_block_memcache = kmem_cache_create("zio-sock",
-					      sizeof(struct zn_item),
-					      __alignof__(struct zn_item),
-					      0, NULL);
+	zn_block_memcache = KMEM_CACHE(zn_item, 0);
 	if (!zn_block_memcache) {
 		ret = -ENOMEM;
 		goto out_kmem;
