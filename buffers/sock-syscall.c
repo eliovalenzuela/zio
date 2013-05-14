@@ -301,28 +301,28 @@ static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
 static int __zn_resolve(struct zio_addr *zaddr, struct zn_dest *d,
 					struct zn_sock *zsk)
 {
-	struct zio_device *ziodev;
+	struct zio_device *zdev;
 
-	ziodev = zio_find_device(zaddr->devname, zaddr->dev_id);
-	if (ziodev == NULL) {
+	zdev = zio_find_device(zaddr->devname, zaddr->dev_id);
+	if (zdev == NULL) {
 		pr_debug("ZIO - Can't find registered device\n");
 		return -ENODEV;
 	}
 	d->dev_id = zaddr->dev_id;
 	/* TODO How can i use dev_id from my sockaddr_zio? */
-	strncpy(d->devname, ziodev->head.name, ZIO_OBJ_NAME_LEN);
+	strncpy(d->devname, zdev->head.name, ZIO_OBJ_NAME_LEN);
 
 	if (zaddr->cset == PFZIO_BIND_ANY){
 		zsk->flags |= ZN_SOCK_DEV_BOUND | ZN_SOCK_BOUND;
 		return 0;
 	}
 
-	if (!(zaddr->cset <= ziodev->n_cset - 1)) {
+	if (!(zaddr->cset <= zdev->n_cset - 1)) {
 		pr_debug("ZIO - Cset out of bound!\n");
 		return -EINVAL;
 	}
 
-	d->cset = &ziodev->cset[zaddr->cset];
+	d->cset = &zdev->cset[zaddr->cset];
 
 	if (zaddr->chan == PFZIO_BIND_ANY){
 		zsk->flags |= ZN_SOCK_CSET_BOUND | ZN_SOCK_BOUND;
