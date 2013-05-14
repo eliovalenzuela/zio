@@ -6,6 +6,7 @@
  * new software network interface, and a new socket-layer logic.
  */
 #define DEBUG
+#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -608,10 +609,20 @@ static int zn_release(struct socket *sock)
 	if (!sk)
 		return 0;
 
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
 	spin_lock_bh(&net->packet.sklist_lock);
+	#else
+	mutex_lock(&net->packet.sklist_lock);
+	#endif
+
 	sk_del_node_init(sk);
 	sock_prot_inuse_add(net, sk->sk_prot, -1);
-	spin_unlock_bh(&net->packet.sklist_lock);
+
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
+	spin_lock_bh(&net->packet.sklist_lock);
+	#else
+	mutex_unlock(&net->packet.sklist_lock);
+	#endif
 
 	/*
 	 * Detach socket from process context.
