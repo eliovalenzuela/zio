@@ -255,6 +255,7 @@ static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
 	struct zio_control *ctrl;
 	struct zio_block *block = zsk->active_block;
 	struct zn_item *item;
+	size_t ctrl_size;
 	int err;
 
 	if (!(zsk->flags & (ZN_SOCK_CONNECTED | ZN_SOCK_BOUND)))
@@ -264,22 +265,22 @@ static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
 	if (err)
 		return err;
 
-	if (size > ZIO_CONTROL_SIZE + block->datalen)
-		size = ZIO_CONTROL_SIZE + block->datalen;
+	ctrl_size = zio_control_size(d->chan);
+	if (size > ctrl_size + block->datalen)
+		size = ctrl_size + block->datalen;
 	ctrl = zio_get_ctrl(block);
-	if (memcpy_toiovec(msg->msg_iov, (unsigned char *)ctrl,
-						ZIO_CONTROL_SIZE))
+	if (memcpy_toiovec(msg->msg_iov, (unsigned char *)ctrl, ctrl_size))
 		return -EFAULT;
 	if (memcpy_toiovec(msg->msg_iov, block->data + block->uoff,
-					size - ZIO_CONTROL_SIZE))
+					size - ctrl_size))
 		return -EFAULT;
 
 	if (flags & MSG_PEEK) {
-		return block->datalen + ZIO_CONTROL_SIZE;
+		return block->datalen + ctrl_size;
 	}
 
 	if (flags & MSG_TRUNC) {
-		size = block->datalen + ZIO_CONTROL_SIZE;
+		size = block->datalen + ctrl_size;
 	}
 
 	if (msg->msg_name && msg->msg_namelen)
@@ -347,6 +348,7 @@ static int __zn_get_out_block(struct zn_sock *zsk, struct zn_dest *d,
 			      int type)
 {
 	struct zio_control *ctrl;
+	size_t ctrl_size = zio_control_size(d->chan);
 	int datalen;
 
 	ctrl = zio_alloc_control(GFP_KERNEL);
@@ -355,10 +357,9 @@ static int __zn_get_out_block(struct zn_sock *zsk, struct zn_dest *d,
 
 	if (type == SOCK_RAW)
 		memcpy_fromiovec((unsigned char*)d->chan->current_ctrl,
-				 msg->msg_iov, ZIO_CONTROL_SIZE);
+				 msg->msg_iov, ctrl_size);
 
-	memcpy(ctrl, d->bi->chan->current_ctrl,
-	       ZIO_CONTROL_SIZE);
+	memcpy(ctrl, d->bi->chan->current_ctrl, ctrl_size);
 
 	datalen = ctrl->ssize * ctrl->nsamples;
 
@@ -520,6 +521,7 @@ static int zn_sendmsg_raw(struct kiocb *kiocb, struct socket *sock,
 	struct zn_dest *d = &zsk->connected_chan;
 	struct sk_buff *skb;
 	struct zio_block *block = zsk->out_block;
+	size_t ctrl_size = zio_control_size(d->chan);
 	int err;
 
 	if (msg->msg_name) {
@@ -538,7 +540,7 @@ static int zn_sendmsg_raw(struct kiocb *kiocb, struct socket *sock,
 
 	/*Check if we have a block ready to send data*/
 	if (block == NULL) {
-		if (len < ZIO_CONTROL_SIZE)
+		if (len < ctrl_size)
 			return -EINVAL;
 
 		err = __zn_get_out_block(zsk, d, &block, msg, SOCK_RAW);
@@ -546,8 +548,7 @@ static int zn_sendmsg_raw(struct kiocb *kiocb, struct socket *sock,
 			return err;
 	}
 
-	len = __zn_prepare_out_block(zsk, &skb, msg, block,
-				     len - ZIO_CONTROL_SIZE);
+	len = __zn_prepare_out_block(zsk, &skb, msg, block, len - ctrl_size);
 	if (len < 0)
 		return len;
 

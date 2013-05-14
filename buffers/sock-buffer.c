@@ -55,9 +55,10 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 	struct zn_item *item;
 	struct sk_buff *skb;
 	struct zn_cb *cb;
+	size_t ctrl_size = zio_control_size(bi->chan);
 	void *ptr;
 	const int headspace = sizeof(struct ethhdr) + NET_IP_ALIGN
-		+ ZIO_CONTROL_SIZE;
+		+ ctrl_size;
 
 	item = kmem_cache_zalloc(zn_block_memcache, gfp);
 
@@ -75,7 +76,7 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 	 */
 	item->block.data = skb_put(skb, datalen);
 
-	memcpy(skb_push(skb, ZIO_CONTROL_SIZE), ctrl, ZIO_CONTROL_SIZE);
+	memcpy(skb_push(skb, ctrl_size), ctrl, ctrl_size);
 
 	/* Build ethernet header (not used by now */
 	dev_hard_header(skb, zn_netdev, ETH_P_ZIO, zn_netdev->dev_addr,
