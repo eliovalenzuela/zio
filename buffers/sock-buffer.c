@@ -237,21 +237,27 @@ static int __init zn_init(void)
 	struct zn_priv *priv;
 	int ret;
 
-	sock_register(&zn_protocol_family);
+	ret = sock_register(&zn_protocol_family);
+	if (ret)
+		return ret;
+
 	dev_add_pack(&zn_packet);
 	zn_netdev = alloc_etherdev(sizeof(struct zn_priv));
 	if (!zn_netdev) {
-		dev_remove_pack(&zn_packet);
-		sock_unregister(PF_ZIO);
-		return -ENODEV; /* FIXME */
+		ret = -ENOMEM;
+		goto out_alloc;
 	}
+
 	strcpy(zn_netdev->name, "zio");
 	zn_netdev->netdev_ops = &zn_netdev_ops;
 	zn_netdev->header_ops = &zn_header_ops;
 	random_ether_addr(zn_netdev->dev_addr);
 
 	priv = netdev_priv(zn_netdev);
-	register_netdev(zn_netdev);
+	ret = register_netdev(zn_netdev);
+	if (ret)
+		goto out_reg;
+
 
 	/* Register memcache for the buffer */
 	zn_block_memcache = kmem_cache_create("zio-sock",
@@ -259,27 +265,37 @@ static int __init zn_init(void)
 					      __alignof__(struct zn_item),
 					      0, NULL);
 	if (!zn_block_memcache) {
-		unregister_netdev(zn_netdev);
-		free_netdev(zn_netdev);
-		dev_remove_pack(&zn_packet);
-		sock_unregister(PF_ZIO);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto out_kmem;
 	}
 
 	ret = zio_register_buf(&zn_buffer, "socket");
+	if (ret)
+		goto out_buf;
 
 	INIT_LIST_HEAD(&zn_sock_list);
+	return ret;
+
+out_buf:
+	kmem_cache_destroy(zn_block_memcache);
+out_kmem:
+	unregister_netdev(zn_netdev);
+out_reg:
+	free_netdev(zn_netdev);
+out_alloc:
+	dev_remove_pack(&zn_packet);
+	sock_unregister(PF_ZIO);
 	return ret;
 }
 
 static void __exit zn_exit(void)
 {
-	/* FIXME: the order is wrong */
+	zio_unregister_buf(&zn_buffer);
+	kmem_cache_destroy(zn_block_memcache);
 	unregister_netdev(zn_netdev);
 	free_netdev(zn_netdev);
 	dev_remove_pack(&zn_packet);
 	sock_unregister(PF_ZIO);
-	zio_unregister_buf(&zn_buffer);
 }
 
 module_init(zn_init);
