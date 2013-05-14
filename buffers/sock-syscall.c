@@ -363,7 +363,7 @@ static int __zn_get_out_block(struct zn_sock *zsk, struct zn_dest *d,
 
 	datalen = ctrl->ssize * ctrl->nsamples;
 
-	*block = d->bi->b_op->alloc_block(d->bi, ctrl, datalen, GFP_KERNEL);
+	*block = d->bi->b_op->alloc_block(d->bi, datalen, GFP_KERNEL);
 
 	if (IS_ERR(*block))
 		return PTR_ERR(block);

@@ -48,10 +48,10 @@ struct list_head zn_sock_list;
 
 /* Called by the socket-layer sendmsg (output) and by the trigger (input) */
 static struct zio_block *zn_alloc_block(struct zio_bi *bi,
-					struct zio_control *ctrl,
 					size_t datalen, gfp_t gfp)
 {
 	struct zn_instance *zni = to_zni(bi);
+	struct zio_control *ctrl;
 	struct zn_item *item;
 	struct sk_buff *skb;
 	struct zn_cb *cb;
@@ -64,7 +64,8 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 
 	/* Alloc skb to hold data going to/coming from the framework*/
 	skb = alloc_skb(headspace + datalen, gfp);
-	if (!skb || !item) {
+	ctrl = zio_alloc_control(gfp);
+	if (!skb || !item || !ctrl) {
 		printk("%s: problem allocating skb or item\n", __func__);
 		goto out;
 	}
@@ -101,6 +102,7 @@ static struct zio_block *zn_alloc_block(struct zio_bi *bi,
 out:
 	kfree_skb(skb);
 	kmem_cache_free(zn_block_memcache, item);
+	zio_free_control(ctrl);
 	return ERR_PTR(-ENOMEM);
 }
 
