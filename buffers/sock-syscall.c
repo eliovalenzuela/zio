@@ -183,7 +183,7 @@ static int zn_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
 		d->bi = &item->instance->bi;
 	}
 
-	d->bi->b_op->free_block(d->bi, block);
+	zio_buffer_free_block(d->bi, block);
 	zsk->active_block = NULL;
 
 	return size;
@@ -238,7 +238,7 @@ static int zn_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 				item = to_zn_item(block);
 				d->bi = &item->instance->bi;
 			}
-			d->bi->b_op->free_block(d->bi, block);
+			zio_buffer_free_block(d->bi, block);
 			zsk->active_block = NULL;
 		}
 	}
@@ -292,7 +292,7 @@ static int zn_recvmsg_raw(struct kiocb *iocb, struct socket *sock,
 		d->bi = &item->instance->bi;
 	}
 
-	d->bi->b_op->free_block(d->bi, block);
+	zio_buffer_free_block(d->bi, block);
 	zsk->active_block = NULL;
 
 	return size;
@@ -364,7 +364,7 @@ static int __zn_get_out_block(struct zn_sock *zsk, struct zn_dest *d,
 
 	datalen = ctrl->ssize * ctrl->nsamples;
 
-	*block = d->bi->b_op->alloc_block(d->bi, datalen, GFP_KERNEL);
+	*block = zio_buffer_alloc_block(d->bi, datalen, GFP_KERNEL);
 
 	if (IS_ERR(*block))
 		return PTR_ERR(block);

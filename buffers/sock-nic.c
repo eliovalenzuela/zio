@@ -70,7 +70,7 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		goto out_free;
 	}
 	if (d->ti->t_op->push_block(d->ti, d->chan, block) < 0)
-		if (d->bi->b_op->store_block(d->bi, block) < 0){
+		if (zio_buffer_store_block(d->bi, block) < 0){
 			pr_debug("Not enough space in buffer, ");
 			goto out_free;
 		}
@@ -84,7 +84,7 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 /*FIXME Like this?*/
 out_free:
 	stats->tx_dropped++;
-	d->bi->b_op->free_block(d->bi, block);
+	zio_buffer_free_block(d->bi, block);
 	return NET_XMIT_DROP;
 }
 
