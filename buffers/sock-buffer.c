@@ -123,7 +123,6 @@ static int zn_store_block(struct zio_bi *bi, struct zio_block *block)
 	struct zn_instance *zni = to_zni(bi);
 	struct zn_item *item = to_zn_item(block);
 	struct sk_buff *skb;
-	int ret;
 
 	if (unlikely(!zio_get_ctrl(block))) {
 		WARN_ON(1);
@@ -141,8 +140,7 @@ static int zn_store_block(struct zio_bi *bi, struct zio_block *block)
 		skb->protocol = cpu_to_be16(ETH_P_ZIO);
 		skb->pkt_type = PACKET_HOST;
 		skb->dev = zn_netdev;
-		ret = netif_rx_ni(skb);
-		return ret;
+		return netif_rx_ni(skb);
 	}
 
 	/* Output */
