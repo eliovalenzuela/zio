@@ -65,27 +65,14 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	else
 		d = &zsk->connected_chan;
 
-	if ((d->ti->flags & ZIO_STATUS) == ZIO_DISABLED) {
-		pr_debug("Zio trigger is disabled, ");
-		goto out_free;
-	}
-	if (d->ti->t_op->push_block(d->ti, d->chan, block) < 0)
-		if (zio_buffer_store_block(d->bi, block) < 0){
-			pr_debug("Not enough space in buffer, ");
-			goto out_free;
-		}
+	if (!zio_trigger_try_push(d->bi, d->chan, block))
+		zio_buffer_store_block(d->bi, block);
 
 	/*Update stats*/
 	stats->tx_packets++;
 	stats->tx_bytes += skb->len;
 	dev->trans_start = jiffies;
 	return NETDEV_TX_OK;
-
-/*FIXME Like this?*/
-out_free:
-	stats->tx_dropped++;
-	zio_buffer_free_block(d->bi, block);
-	return NET_XMIT_DROP;
 }
 
 static int zn_set_mac_address(struct net_device *dev, void *vaddr)
