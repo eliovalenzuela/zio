@@ -226,7 +226,6 @@ static struct zio_buffer_type zn_buffer = {
 
 static int __init zn_init(void)
 {
-	struct zn_priv *priv;
 	int ret;
 
 	ret = sock_register(&zn_protocol_family);
@@ -245,7 +244,6 @@ static int __init zn_init(void)
 	zn_netdev->header_ops = &zn_header_ops;
 	random_ether_addr(zn_netdev->dev_addr);
 
-	priv = netdev_priv(zn_netdev);
 	ret = register_netdev(zn_netdev);
 	if (ret)
 		goto out_reg;
