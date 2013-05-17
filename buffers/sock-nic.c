@@ -28,14 +28,14 @@ struct net_device *zn_netdev;
 
 static int zn_open(struct net_device *dev)
 {
-	pr_debug("%s called\n", __func__);
+	dev_dbg(&dev->dev, "%s called\n", __func__);
 	netif_start_queue(dev);
 	return 0;
 }
 
 static int zn_close(struct net_device *dev)
 {
-	pr_debug("%s called\n", __func__);
+	dev_dbg(&dev->dev, "%s called\n", __func__);
 	netif_stop_queue(dev);
 	return 0;
 }
@@ -49,7 +49,7 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct zio_block *block;
 	struct zn_cb *cb = (struct zn_cb *)skb->cb;
 
-	pr_debug("%s called\n", __func__);
+	dev_dbg(&dev->dev, "%s called\n", __func__);
 
 	if (unlikely(skb->protocol != cpu_to_be16(ETH_P_ZIO))) {
 		/*FIXME kfree_skb needed?*/
@@ -77,7 +77,7 @@ static int zn_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 static int zn_set_mac_address(struct net_device *dev, void *vaddr)
 {
-	pr_debug("%s called\n", __func__);
+	dev_dbg(&dev->dev, "%s called\n", __func__);
 	return 0;
 }
 
@@ -110,7 +110,7 @@ static int zn_rebuild_header(struct sk_buff *skb)
 
 static void zn_tx_timeout(struct net_device *dev)
 {
-	pr_debug("%s called\n", __func__);
+	dev_dbg(&dev->dev, "%s called\n", __func__);
 	return;
 }
 
@@ -122,7 +122,7 @@ struct net_device_stats *zn_stats(struct net_device *dev)
 
 static int zn_config(struct net_device *dev, struct ifmap *map)
 {
-	pr_debug("%s called\n", __func__);
+	dev_dbg(&dev->dev, "%s called\n", __func__);
 	return 0;
 }
 
