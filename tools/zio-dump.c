@@ -311,7 +311,7 @@ int main(int argc, char **argv)
 	argv += optind - 1;
 	argc -= optind - 1;
 
-	if (combined && argc != 2)
+	if (combined && argc > 2)
 		help(prgname);
 	if (!combined) {
 		if (argc < 3 || (argc & 1) != 1)
@@ -333,8 +333,15 @@ int main(int argc, char **argv)
 	setlinebuf(stdout);
 	setbuf(f, NULL);
 
-	if (combined) /* Read a combined file or a control-only file */
-	  return read_combined(argv[1], nblocks, f, sniff);
+	if (combined) {/* Read a combined file or a control-only file */
+		if (argc == 2) /* explicit parameter */
+		  return read_combined(argv[1], nblocks, f, sniff);
+
+		if (!isatty(STDIN_FILENO)) /* piped */
+		  return read_combined("/dev/stdin", nblocks, f, sniff);
+		else	/* wrong use */
+			help(prgname);
+	}
 
 	/* Start reading both control and data char devices */
 	cfd = malloc(argc / 2 * sizeof(*cfd));
