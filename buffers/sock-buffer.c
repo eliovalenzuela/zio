@@ -221,7 +221,7 @@ static struct zio_buffer_type zn_buffer = {
 	},
 	.s_op = &zn_sysfs_ops,
 	.b_op = &zn_buffer_ops,
-	/*.f_op = &zio_generic_file_operations, TODO, should enable these? */
+	.f_op = &zio_generic_file_operations, /* TODO, should enable these? */
 };
 
 static int __init zn_init(void)
