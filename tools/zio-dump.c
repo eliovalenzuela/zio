@@ -226,6 +226,36 @@ void help(char *name)
 	exit(1);
 }
 
+/**
+ * So, we are reading one combined file. Just open it and
+ * read it forever or nblocks if > 0; read_channel() is blocking.
+ */
+int read_combined(char *combined_file, unsigned long nblocks, FILE *f,
+		  int sniff)
+{
+	int cfd, dfd;
+
+	cfd = open(combined_file, O_RDONLY);
+	if (cfd < 0) {
+		fprintf(stderr, "%s: %s: %s\n", prgname, combined_file,
+			strerror(errno));
+		return cfd;
+	}
+
+	if (sniff)
+		dfd = -1;
+	else
+		dfd = cfd;
+
+	while (nblocks) {
+		read_channel(cfd, dfd, f);
+		if (nblocks > 0)
+			nblocks--;
+	}
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	FILE *f;
@@ -350,25 +380,9 @@ int main(int argc, char **argv)
 					read_channel(cfd[j], dfd[j], f);
 		}
 		exit(0);
+	} else {
+		read_combined(argv[1], nblocks, f, sniff);
 	}
-	/*
-	 * So, we are reading one combined file. Just open it and
-	 * read it forever or nblocks if > 0; read_channel() is blocking.
-	 */
-	cfd[0] = open(argv[1], O_RDONLY);
-	if (cfd[0] < 0) {
-		fprintf(stderr, "%s: %s: %s\n", prgname, argv[1],
-			strerror(errno));
-		exit(1);
-	}
-	if (sniff)
-		dfd[0] = -1;
-	else
-		dfd[0] = cfd[0];
-	while (nblocks) {
-		read_channel(cfd[0], dfd[0], f);
-		if (nblocks > 0)
-			nblocks--;
-	}
+
 	return 0;
 }
