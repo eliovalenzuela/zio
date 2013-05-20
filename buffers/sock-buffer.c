@@ -144,7 +144,7 @@ static int zn_store_block(struct zio_bi *bi, struct zio_block *block)
 
 	/* Output */
 	spin_lock(&bi->lock);
-	if (zni->nitem >= bi->zattr_set.std_zattr[ZIO_ATTR_ZBUF_MAXLEN].value) {
+	if (zni->nitem >= zio_bi_std_val(bi, ZIO_ATTR_ZBUF_MAXLEN)) {
 		spin_unlock(&bi->lock);
 		return -ENOSPC;
 	}
