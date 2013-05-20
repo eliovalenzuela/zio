@@ -11,7 +11,7 @@ typedef unsigned fmode_t;
 
 /* WARN appeared in v2.6.26-6936-ga8f18b9 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
-#define WARN(condition, format...) ({pr_warning(format);})
+#define WARN(condition, format...) ({if (condition) pr_warning(format);})
 #endif
 
 /* dev_name() appeared in v2.6.26-rc1*/
