@@ -81,12 +81,13 @@ static int zn_set_mac_address(struct net_device *dev, void *vaddr)
 	return 0;
 }
 
-/*zn_header stands for the device->hard_header. This function is called before
- * transmission and should build the header for the packet*/
-
+/**
+ * zn_header stands for the device->hard_header. This function is called before
+ * transmission and should build the header for the packet
+ */
 static int zn_header(struct sk_buff *skb, struct net_device *dev,
-				unsigned short type, const void *daddr,
-					const void *saddr, unsigned int len)
+		     unsigned short type, const void *daddr,
+		     const void *saddr, unsigned int len)
 {
 	struct ethhdr *eth;
 
