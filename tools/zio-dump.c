@@ -333,6 +333,10 @@ int main(int argc, char **argv)
 	setlinebuf(stdout);
 	setbuf(f, NULL);
 
+	if (combined) /* Read a combined file or a control-only file */
+	  return read_combined(argv[1], nblocks, f, sniff);
+
+	/* Start reading both control and data char devices */
 	cfd = malloc(argc / 2 * sizeof(*cfd));
 	dfd = malloc(argc / 2 * sizeof(*dfd));
 	if (!cfd || !dfd) {
@@ -342,7 +346,7 @@ int main(int argc, char **argv)
 
 	/* Open all pairs, and build the fd_set for later select() */
 	FD_ZERO(&control_set);
-	for (i = 1, j = 0; !combined && i < argc; i += 2, j++) {
+	for (i = 1, j = 0; i < argc; i += 2, j++) {
 		cfd[j] = open(argv[i], O_RDONLY);
 		dfd[j] = open(argv[i + 1], O_RDONLY);
 		if (cfd[j] < 0) {
@@ -362,27 +366,24 @@ int main(int argc, char **argv)
 	}
 	ndev = j;
 
-	if (!combined) {
-		/* Read control and then data. Forever or nblocks if > 0 */
-		while (nblocks) {
-			if (nblocks > 0)
-				nblocks--;
-			ready_set = control_set;
-			i = select(maxfd + 1, &ready_set, NULL, NULL, NULL);
-			if (i < 0 && errno == EINTR)
-				continue;
-			if (i < 0) {
-				fprintf(stderr, "%s: select(): %s\n", prgname,
-					strerror(errno));
-				exit(1);
-			}
-			for (j = 0; j < ndev; j++)
-				if (FD_ISSET(cfd[j], &ready_set))
-					read_channel(cfd[j], dfd[j], f);
+
+	/* Read control and then data. Forever or nblocks if > 0 */
+	while (nblocks) {
+		if (nblocks > 0)
+			nblocks--;
+		ready_set = control_set;
+		i = select(maxfd + 1, &ready_set, NULL, NULL, NULL);
+		if (i < 0 && errno == EINTR)
+			continue;
+		if (i < 0) {
+			fprintf(stderr, "%s: select(): %s\n", prgname,
+				strerror(errno));
+			exit(1);
 		}
-		exit(0);
-	} else {
-		read_combined(argv[1], nblocks, f, sniff);
+
+		for (j = 0; j < ndev; j++)
+			if (FD_ISSET(cfd[j], &ready_set))
+				read_channel(cfd[j], dfd[j], f);
 	}
 
 	return 0;
