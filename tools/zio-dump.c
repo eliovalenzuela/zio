@@ -318,6 +318,21 @@ int main(int argc, char **argv)
 			help(prgname);
 	}
 
+	/* always log data we read to some filename */
+	outfname = getenv("ZIO_DUMP_TO");
+	if (!outfname)
+		outfname = "/dev/null";
+	f = fopen(outfname, "w");
+	if (!f) {
+		fprintf(stderr, "%s: %s: %s\n", prgname, outfname,
+			strerror(errno));
+		exit(1);
+	}
+
+	/* ensure proper strace information and proper output to pipes */
+	setlinebuf(stdout);
+	setbuf(f, NULL);
+
 	cfd = malloc(argc / 2 * sizeof(*cfd));
 	dfd = malloc(argc / 2 * sizeof(*dfd));
 	if (!cfd || !dfd) {
@@ -346,20 +361,6 @@ int main(int argc, char **argv)
 		maxfd = dfd[j];
 	}
 	ndev = j;
-
-	/* always log data we read to some filename */
-	outfname = getenv("ZIO_DUMP_TO");
-	if (!outfname)
-		outfname = "/dev/null";
-	f = fopen(outfname, "w");
-	if (!f) {
-		fprintf(stderr, "%s: %s: %s\n", prgname, outfname,
-			strerror(errno));
-		exit(1);
-	}
-	/* ensure proper strace information and proper output to pipes */
-	setlinebuf(stdout);
-	setbuf(f, NULL);
 
 	if (!combined) {
 		/* Read control and then data. Forever or nblocks if > 0 */
