@@ -183,15 +183,9 @@ static inline int __try_push(struct zio_bi *bi, struct zio_channel *chan,
 	/* chek if trigger is disabled */
 	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED))
 		return 0;
-	/*
-	 * If push succeeds and the device eats data immediately,
-	 * the trigger may call retr_block right now.  So
-	 * release the lock but also say we can't retrieve now.
-	 */
+	/* Keep the lock, but mark we are pushing so trigger-user won't retr */
 	bi->flags |= ZIO_BI_PUSHING;
-	spin_unlock(&bi->lock);
 	pushed = (ti->t_op->push_block(ti, chan, block) == 0);
-	spin_lock(&bi->lock);
 	bi->flags &=  ~ZIO_BI_PUSHING;
 	return pushed;
 }
@@ -215,15 +209,14 @@ static int zbk_store_block(struct zio_bi *bi, struct zio_block *block)
 	/* add to the buffer instance or push to the trigger */
 	spin_lock_irqsave(&bi->lock, flags);
 	first = list_empty(&zbki->list);
-	list_add_tail(&item->list, &zbki->list);
 	if (first) {
 		if (unlikely(output))
 			pushed = __try_push(bi, chan, block);
 		else
 			awake = 1;
 	}
-	if (pushed)
-		list_del(&item->list);
+	if (!pushed)
+		list_add_tail(&item->list, &zbki->list);
 	if (!first && zbki->flags & ZBK_FLAG_MERGE_DATA)
 		zbk_try_merge(zbki, item);
 	spin_unlock_irqrestore(&bi->lock, flags);
@@ -246,8 +239,13 @@ static struct zio_block *zbk_retr_block(struct zio_bi *bi)
 
 	zbki = to_zbki(bi);
 
+	/* PUSHING is only active temporarily during locked context */
+	if (bi->flags & ZIO_BI_PUSHING)
+		return NULL;
+
+	/* There is no trig->push in our call trace, proceed to get the lock */
 	spin_lock_irqsave(&bi->lock, flags);
-	if (list_empty(&zbki->list) || bi->flags & ZIO_BI_PUSHING)
+	if (list_empty(&zbki->list))
 		goto out_unlock;
 	first = zbki->list.next;
 	item = list_entry(first, struct zbk_item, list);

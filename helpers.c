@@ -57,7 +57,7 @@ int zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 			__zio_internal_abort_free(cset);
 		ti->flags &= (~ZIO_TI_ARMED);
 	}
-	ret = ti->flags &= ZIO_STATUS;
+	ret = ti->flags & ZIO_STATUS;
 	if (disable)
 		ti->flags |= ZIO_DISABLED;
 	spin_unlock_irqrestore(&cset->lock, flags);
