@@ -274,6 +274,7 @@ static int zio_read_mask(struct zio_f_priv *priv)
 	struct zio_bi *bi = chan->bi;
 	const int can_read =  POLLIN | POLLRDNORM;
 
+	/* This is called with the mutex held */
 	if (!chan->user_block)
 		chan->user_block = bi->b_op->retr_block(bi);
 	if (!chan->user_block)
@@ -310,6 +311,7 @@ static int zio_write_mask(struct zio_f_priv *priv)
 	struct zio_block *block = chan->user_block;
 	const int can_write = POLLOUT | POLLWRNORM;
 
+	/* This is called with the mutex held */
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
 		/* A control can be replaced before store */
 		if (block)
@@ -317,7 +319,6 @@ static int zio_write_mask(struct zio_f_priv *priv)
 		chan->user_block = __zio_write_allocblock(bi);
 		return chan->user_block ? can_write : 0;
 	}
-
 	/* We want to write data. If datasize is zero, we can't */
 	if (!chan->cset->ssize)
 		return 0;
@@ -342,6 +343,7 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
+	ssize_t ret;
 
 	pr_debug("%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
@@ -349,39 +351,58 @@ static ssize_t zio_generic_read(struct file *f, char __user *ubuf,
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
 		return -EINVAL;
 
+	if (mutex_lock_interruptible(&chan->user_sem))
+		return -ERESTARTSYS;
+
 	if (!zio_read_mask(priv)) {
-		if (f->f_flags & O_NONBLOCK)
-			return -EAGAIN;
+		if (f->f_flags & O_NONBLOCK) {
+			ret = -EAGAIN;
+			goto out;
+		}
 		wait_event_interruptible(bi->q, zio_read_mask(priv));
-		if (signal_pending(current))
-			return -ERESTARTSYS;
+		if (signal_pending(current)) {
+			ret = -ERESTARTSYS;
+			goto out;
+		}
 	}
+
 	block = chan->user_block;
 
 	/* So, it's readable. Handle control first */
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
-		if (count < zio_control_size(chan))
-			return -EINVAL;
+		if (count < zio_control_size(chan)) {
+			ret = -EINVAL;
+			goto out;
+		}
 		count = zio_control_size(chan);
-		if (copy_to_user(ubuf, zio_get_ctrl(block), count))
-			return -EFAULT;
+		if (copy_to_user(ubuf, zio_get_ctrl(block), count)) {
+			ret = -EFAULT;
+			goto out;
+		}
 		zio_set_cdone(block);
 		*offp += count;
-		return count;
+		ret = count;
+		goto out;
 	}
 
 	/* Data file, and some data is there */
 	if (count > block->datalen - block->uoff)
 		count = block->datalen - block->uoff;
-	if (copy_to_user(ubuf, block->data + block->uoff, count))
-		return -EFAULT;
+	if (copy_to_user(ubuf, block->data + block->uoff, count)) {
+		ret = -EFAULT;
+		goto out;
+	}
 	*offp += count;
 	block->uoff += count;
 	if (block->uoff == block->datalen) {
 		chan->user_block = NULL;
 		bi->b_op->free_block(bi, block);
 	}
-	return count;
+	ret = count;
+
+out:
+	mutex_unlock(&chan->user_sem);
+	return ret;
 }
 
 static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
@@ -391,6 +412,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	struct zio_channel *chan = priv->chan;
 	struct zio_bi *bi = chan->bi;
 	struct zio_block *block;
+	ssize_t ret;
 
 	pr_debug("%s:%d type %s\n", __func__, __LINE__,
 		priv->type == ZIO_CDEV_CTRL ? "ctrl" : "data");
@@ -398,22 +420,33 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_INPUT)
 		return -EINVAL;
 
+	if (mutex_lock_interruptible(&chan->user_sem))
+		return -ERESTARTSYS;
+
 	if (!zio_write_mask(priv)) {
-		if (f->f_flags & O_NONBLOCK)
-			return -EAGAIN;
+		if (f->f_flags & O_NONBLOCK) {
+			ret = -EAGAIN;
+			goto out;
+		}
 		wait_event_interruptible(bi->q, zio_write_mask(priv));
-		if (signal_pending(current))
-			return -ERESTARTSYS;
+		if (signal_pending(current)) {
+			ret = -ERESTARTSYS;
+			goto out;
+		}
 	}
 	block = chan->user_block;
 
 	/* File is writeable, handle control first */
 	if (unlikely(priv->type == ZIO_CDEV_CTRL)) {
-		if (count < zio_control_size(chan))
-			return -EINVAL;
+		if (count < zio_control_size(chan)) {
+			ret = -EINVAL;
+			goto out;
+		}
 		count = zio_control_size(chan);
-		if (copy_from_user(zio_get_ctrl(block), ubuf, count))
-			return -EFAULT;
+		if (copy_from_user(zio_get_ctrl(block), ubuf, count)) {
+			ret = -EFAULT;
+			goto out;
+		}
 		zio_set_cdone(block);
 		*offp += count;
 
@@ -421,20 +454,27 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 			bi->b_op->store_block(bi, block); /* can't fail */
 			chan->user_block = NULL;
 		}
-		return count;
+		ret = count;
+		goto out;
 	}
 
 	if (count > block->datalen - block->uoff)
 		count =  block->datalen - block->uoff;
-	if (copy_from_user(block->data + block->uoff, ubuf, count))
-		return -EFAULT;
+	if (copy_from_user(block->data + block->uoff, ubuf, count)) {
+		ret = -EFAULT;
+		goto out;
+	}
 	*offp += count;
 	block->uoff += count;
 	if (block->uoff == block->datalen) {
 		bi->b_op->store_block(bi, block); /* can't fail */
 		chan->user_block = NULL;
 	}
-	return count;
+	ret = count;
+
+out:
+	mutex_unlock(&chan->user_sem);
+	return ret;
 }
 
 static int zio_generic_mmap(struct file *f, struct vm_area_struct *vma)
@@ -458,23 +498,31 @@ static unsigned int zio_generic_poll(struct file *f,
 {
 	struct zio_f_priv *priv = f->private_data;
 	struct zio_bi *bi = priv->chan->bi;
+	struct zio_channel *chan = priv->chan;
+	unsigned int ret;
 
 	poll_wait(f, &bi->q, w);
+	mutex_lock(&chan->user_sem);
 	if ((bi->flags & ZIO_DIR) == ZIO_DIR_OUTPUT)
-		return zio_write_mask(priv);
+		ret = zio_write_mask(priv);
 	else
-		return zio_read_mask(priv);
+		ret = zio_read_mask(priv);
+	mutex_unlock(&chan->user_sem);
+	return ret;
 }
 
 static int zio_generic_release(struct inode *inode, struct file *f)
 {
 	struct zio_f_priv *priv = f->private_data;
 	struct zio_channel *chan = priv->chan;
-	struct zio_block *block = chan->user_block;
+	struct zio_block *block;
 
-	if (chan->user_block)
+	mutex_lock(&chan->user_sem);
+	block = chan->user_block;
+	if (block)
 		chan->bi->b_op->free_block(chan->bi, block);
 	chan->user_block = NULL;
+	mutex_unlock(&chan->user_sem);
 
 	zio_channel_put(chan);
 	/* priv is allocated by zio_f_open, must be freed */

@@ -765,6 +765,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 			chan_tmp = cset->chan_template;
 		else if (cset_t->chan)
 			chan_tmp = &cset->chan[i];
+		mutex_init(&cset->chan[i].user_sem);
 		err = chan_register(&cset->chan[i], chan_tmp);
 		if (err)
 			goto out_reg;

@@ -245,6 +245,7 @@ struct zio_channel {
 	struct zio_control	*current_ctrl;	/* the active one */
 	struct zio_block	*user_block;	/* being transferred w/ user */
 	struct zio_block	*active_block;	/* being managed by hardware */
+	struct mutex		user_sem;	/* for user_block access*/
 };
 
 /* first 4bit are reserved for zio object universal flags */
