@@ -185,14 +185,17 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 		break;
 	case ZIO_TI:
 		ti = to_zio_ti(&head->dev);
-		/* If trigger params change, we need to abort and restart */
+		/*
+		 * If trigger params change, we need to abort ongoing I/O.
+		 * Disable, temporarily, while we change configuration.
+		 */
+		tflags = zio_trigger_abort_disable(ti->cset, 1);
+		/*
+		 * It is disabled, nobody can enable since that is only
+		 * possible through sysfs and we hold the config lock.
+		 * So pick the I/O lock to prevent I/O operations and proceed.
+		 */
 		spin_lock_irqsave(&ti->cset->lock, flags);
-		tflags = ti->flags;
-		if (tflags & ZIO_TI_ARMED) {
-			spin_unlock_irqrestore(&ti->cset->lock, flags);
-			zio_trigger_abort_disable(ti->cset, 1);
-			spin_lock_irqsave(&ti->cset->lock, flags);
-		}
 		__ctrl_update_nsamples(ti);
 		/* Update attributes in all "current_ctrl" struct */
 		for (i = 0; i < ti->cset->n_chan; ++i) {
@@ -200,11 +203,10 @@ static void __zattr_propagate_value(struct zio_obj_head *head,
 			ctrl = chan->current_ctrl;
 			__zattr_valcpy(&ctrl->attr_trigger, zattr);
 		}
-		/* The new paramaters are in place, rearm/enable the trigger */
-		ti->flags = tflags & ~ZIO_TI_ARMED;
+		/* If it was enabled, re-enable it */
+		if ((tflags & ZIO_STATUS) == ZIO_ENABLED)
+			ti->flags = (ti->flags & ~ZIO_STATUS) | ZIO_ENABLED;
 		spin_unlock_irqrestore(&ti->cset->lock, flags);
-		if (tflags & ZIO_TI_ARMED)
-			zio_arm_trigger(ti);
 		break;
 	default:
 		return;
