@@ -362,6 +362,7 @@ static void __exit ad788x_exit(void)
 module_init(ad788x_init);
 module_exit(ad788x_exit);
 
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Federico Vaga <federico.vaga@gmail.com>");
 MODULE_DESCRIPTION("AD788x driver for ZIO framework");
 MODULE_LICENSE("GPL");

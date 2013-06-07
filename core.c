@@ -142,6 +142,7 @@ static void __exit zio_exit(void)
 subsys_initcall(zio_init);
 module_exit(zio_exit);
 
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Federico Vaga and Alessandro Rubini");
 /* Federico wrote the core, Alessandro wrote default trigger and buffer */
 MODULE_DESCRIPTION("ZIO - ZIO Input Output");

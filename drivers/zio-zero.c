@@ -209,6 +209,7 @@ static void __exit zzero_exit(void)
 module_init(zzero_init);
 module_exit(zzero_exit);
 
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Federico Vaga <federico.vaga@gmail.com>");
 MODULE_DESCRIPTION("A zio driver which fakes zero, random and sawtooth input");
 MODULE_LICENSE("GPL");

@@ -285,5 +285,7 @@ static void __exit ztt_exit(void)
 
 module_init(ztt_init);
 module_exit(ztt_exit);
+
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Alessandro Rubini");
 MODULE_LICENSE("GPL");
