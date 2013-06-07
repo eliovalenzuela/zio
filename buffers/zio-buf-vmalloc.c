@@ -411,4 +411,5 @@ static void __exit zbk_exit(void)
 module_init(zbk_init);
 module_exit(zbk_exit);
 MODULE_AUTHOR("Alessandro Rubini");
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_LICENSE("GPL");

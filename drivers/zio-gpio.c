@@ -214,4 +214,5 @@ static void __exit zgp_exit(void)
 module_init(zgp_init);
 module_exit(zgp_exit);
 
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_LICENSE("GPL");

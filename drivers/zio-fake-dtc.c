@@ -154,5 +154,6 @@ static void __exit zdtc_exit(void)
 module_init(zdtc_init);
 module_exit(zdtc_exit);
 
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_LICENSE("GPL");
 

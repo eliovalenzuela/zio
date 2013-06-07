@@ -514,6 +514,7 @@ static void __exit zloop_exit(void)
 module_init(zloop_init);
 module_exit(zloop_exit);
 
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Alessandro Rubini <rubini@.com>");
 MODULE_DESCRIPTION("A zio driver which loops back to zio or a chardev");
 MODULE_LICENSE("GPL");

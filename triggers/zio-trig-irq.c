@@ -194,5 +194,7 @@ static void __exit zti_exit(void)
 
 module_init(zti_init);
 module_exit(zti_exit);
+
+MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Alessandro Rubini");
 MODULE_LICENSE("GPL");
