@@ -214,6 +214,7 @@ struct zio_control {
 #define ZIO_CONTROL_LSB_ALIGN		0x00000008 /* for analog data */
 
 #define ZIO_CONTROL_INTERLEAVE_DATA	0x00000040 /* for interleaved data */
+#define ZIO_CONTROL_TRY_CONFIGURE	0x00000010 /* on output, try config */
 
 #ifdef __KERNEL__
 /*

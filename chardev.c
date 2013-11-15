@@ -541,8 +541,7 @@ static ssize_t zio_generic_write(struct file *f, const char __user *ubuf,
 			 * we are currently discarding it
 			 */
 			block->uoff = 0;
-			fault = copy_from_user(zio_get_ctrl(block), ubuf,
-					       count);
+			fault = copy_from_user(zio_get_ctrl(block), ubuf, count);
 			/* FIXME: preserve some fields in the output ctrl */
 			if (!fault && !chan->cset->ssize) {
 				zio_buffer_store_block(bi, block); /* 0-size */
