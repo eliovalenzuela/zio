@@ -30,11 +30,11 @@
 #define CSET_SYSFS_TRIGGER	"current_trigger"
 
 const char zio_zdev_attr_names[_ZIO_DEV_ATTR_STD_NUM][ZIO_NAME_LEN] = {
-	[ZIO_ATTR_GAIN]			= "gain_factor",
-	[ZIO_ATTR_OFFSET]		= "offset",
-	[ZIO_ATTR_NBITS]		= "resolution-bits",
-	[ZIO_ATTR_MAXRATE]		= "max-sample-rate",
-	[ZIO_ATTR_VREFTYPE]		= "vref-src",
+	[ZIO_ATTR_DEV_GAIN]			= "gain_factor",
+	[ZIO_ATTR_DEV_OFFSET]		= "offset",
+	[ZIO_ATTR_DEV_NBITS]		= "resolution-bits",
+	[ZIO_ATTR_DEV_MAXRATE]		= "max-sample-rate",
+	[ZIO_ATTR_DEV_VREF]		= "vref-src",
 	[ZIO_ATTR_DEV_VERSION]	= "version",
 };
 EXPORT_SYMBOL(zio_zdev_attr_names);

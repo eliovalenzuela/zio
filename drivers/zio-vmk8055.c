@@ -91,10 +91,10 @@ enum zvmk80xx_ext {
 };
 
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zvmk80xx_do_ao_ai_attr) = {
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, ZVMK80XX_BITS, 8),
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_NBITS, ZIO_RO_PERM, ZVMK80XX_BITS, 8),
 };
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zvmk80xx_di_attr) = {
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, ZVMK80XX_BITS, 5),
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_NBITS, ZIO_RO_PERM, ZVMK80XX_BITS, 5),
 };
 static struct zio_attribute zvmk80xx_cset_attr[] = {
 	ZIO_ATTR_EXT("ms-period", ZIO_RW_PERM, ZVMK80XX_PERIOD, 20),

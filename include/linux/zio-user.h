@@ -56,11 +56,11 @@ enum zio_object_type {
 
 #define ZIO_ATTR_VERSION (ZIO_MAX_STD_ATTR - 1)
 enum zio_dev_std_attr {
-	ZIO_ATTR_NBITS,	/* number of bits per sample */
-	ZIO_ATTR_GAIN,	/* gain for signal, integer in 0.001 steps */
-	ZIO_ATTR_OFFSET,	/* microvolts */
-	ZIO_ATTR_MAXRATE,	/* hertz */
-	ZIO_ATTR_VREFTYPE,	/* source of Vref (0 = default) */
+	ZIO_ATTR_DEV_NBITS,	/* number of bits per sample */
+	ZIO_ATTR_DEV_GAIN,	/* gain for signal, integer in 0.001 steps */
+	ZIO_ATTR_DEV_OFFSET,	/* microvolts */
+	ZIO_ATTR_DEV_MAXRATE,	/* hertz */
+	ZIO_ATTR_DEV_VREF,	/* Volt reference (0 = default) */
 
 	/* Specials attributes */
 	ZIO_ATTR_DEV_VERSION = ZIO_ATTR_VERSION,	/* attribute set version */

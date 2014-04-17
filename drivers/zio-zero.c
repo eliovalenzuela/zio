@@ -28,14 +28,13 @@ ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_dev) = {
 
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset8) = {
 	/* 8 bit -> ssize = 1 */
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 8),
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_NBITS, ZIO_RO_PERM, 0, 8),
 };
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zzero_zattr_cset32) = {
 	/* 32 bit -> ssize = 4 */
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 32),
-	ZIO_ATTR_RNG(zdev, ZIO_ATTR_OFFSET, ZIO_RW_PERM, 0, 0, 0, 100),
-	ZIO_ATTR_RNG(zdev, ZIO_ATTR_GAIN, ZIO_RW_PERM, 0, 1, 1, 10),
-
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_NBITS, ZIO_RO_PERM, 0, 32),
+	ZIO_ATTR_RNG(zdev, ZIO_ATTR_DEV_OFFSET, ZIO_RW_PERM, 0, 0, 0, 100),
+	ZIO_ATTR_RNG(zdev, ZIO_ATTR_DEV_GAIN, ZIO_RW_PERM, 0, 1, 1, 10),
 };
 /* This attribute is the sequence point for input channel number 0 of cset 2 */
 enum zzero_ext {
@@ -53,8 +52,8 @@ static void zzero_get_sequence(struct zio_channel *chan,
 {
 	uint32_t *ptr = data;
 	uint32_t *value = &chan->cset->zattr_set.ext_zattr[ZZERO_SEQ].value;
-	uint32_t gain = chan->cset->zattr_set.std_zattr[ZIO_ATTR_GAIN].value;
-	uint32_t offset = chan->cset->zattr_set.std_zattr[ZIO_ATTR_OFFSET].value;
+	uint32_t gain = chan->cset->zattr_set.std_zattr[ZIO_ATTR_DEV_GAIN].value;
+	uint32_t offset = chan->cset->zattr_set.std_zattr[ZIO_ATTR_DEV_OFFSET].value;
 
 	while (datalen >= 4) {
 		put_unaligned_le32((*value * gain) + offset, ptr);

@@ -623,16 +623,16 @@ static uint16_t __get_nbits(struct zio_channel *chan)
 	struct zio_cset *cset;
 
 	if (chan->zattr_set.std_zattr)
-		if (chan->zattr_set.std_zattr[ZIO_ATTR_NBITS].value)
-			return chan->zattr_set.std_zattr[ZIO_ATTR_NBITS].value;
+		if (chan->zattr_set.std_zattr[ZIO_ATTR_DEV_NBITS].value)
+			return chan->zattr_set.std_zattr[ZIO_ATTR_DEV_NBITS].value;
 	cset = chan->cset;
 	if (cset->zattr_set.std_zattr)
-		if (cset->zattr_set.std_zattr[ZIO_ATTR_NBITS].value)
-			return cset->zattr_set.std_zattr[ZIO_ATTR_NBITS].value;
+		if (cset->zattr_set.std_zattr[ZIO_ATTR_DEV_NBITS].value)
+			return cset->zattr_set.std_zattr[ZIO_ATTR_DEV_NBITS].value;
 	zdev = cset->zdev;
 	if (zdev->zattr_set.std_zattr)
-		if (zdev->zattr_set.std_zattr[ZIO_ATTR_NBITS].value)
-			return zdev->zattr_set.std_zattr[ZIO_ATTR_NBITS].value;
+		if (zdev->zattr_set.std_zattr[ZIO_ATTR_DEV_NBITS].value)
+			return zdev->zattr_set.std_zattr[ZIO_ATTR_DEV_NBITS].value;
 
 	/* The attr. is optional, so devices with no attributes are allowed */
 	return chan->cset->ssize * BITS_PER_BYTE;

@@ -37,7 +37,7 @@ ZIO_PARAM_TRIGGER(zgp_trigger);
 ZIO_PARAM_BUFFER(zgp_buffer);
 
 ZIO_ATTR_DEFINE_STD(ZIO_DEV, zgp_zattr_dev) = {
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 1), /* digital */
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_NBITS, ZIO_RO_PERM, 0, 1), /* digital */
 };
 
 /* This outputs a cset, currently made up of one channel only */

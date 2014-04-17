@@ -58,21 +58,21 @@ struct ad788x {
  */
 /* Standard attributes for AD7887*/
 static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7887) = {
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 12),
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_NBITS, ZIO_RO_PERM, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, ZIO_RW_PERM,
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_VREF, ZIO_RW_PERM,
 		 AD7887_VREF_ADDR, 1),
 };
 /* Standard attributes for AD7888*/
 static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7888) = {
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 12),
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_NBITS, ZIO_RO_PERM, 0, 12),
 	/* vref_src can be internal (0) or external (1)*/
-	ZIO_ATTR(zdev, ZIO_ATTR_VREFTYPE, ZIO_RW_PERM,
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_VREF, ZIO_RW_PERM,
 		 AD7888_VREF_ADDR, 0),
 };
 /* Standard attributes for AD7476*/
 static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_ad7476) = {
-	ZIO_ATTR(zdev, ZIO_ATTR_NBITS, ZIO_RO_PERM, 0, 12),
+	ZIO_ATTR(zdev, ZIO_ATTR_DEV_NBITS, ZIO_RO_PERM, 0, 12),
 };
 /* Extended attributes for AD7887 */
 static struct zio_attribute zattr_dev_ext_ad7887[] = {
@@ -311,7 +311,7 @@ static int ad788x_zio_probe(struct zio_device *zdev)
 	/* Setting up the default value for the SPI command */
 	vshift = (ad788x->type == ID_AD7887 ? AD7887_VREF_SHIFT :
 					      AD7888_VREF_SHIFT);
-	ad788x->cmd = zattr_set->std_zattr[ZIO_ATTR_VREFTYPE].value << vshift;
+	ad788x->cmd = zattr_set->std_zattr[ZIO_ATTR_DEV_VREF].value << vshift;
 	ad788x->cmd |= zattr_set->ext_zattr[0].value << AD788x_PM_SHIFT;
 	if (ad788x->type == ID_AD7887)
 		ad788x->cmd |= zattr_set->ext_zattr[1].value <<
