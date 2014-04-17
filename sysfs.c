@@ -830,6 +830,176 @@ static ssize_t zio_show_dire(struct device *dev,
 }
 
 /**
+ * @path: path to the current attribute set
+ * @zattr_set: attribute set to show
+ * @buf: buffer to fill
+ *
+ * It fills the buffer with attirbute's details
+ *
+ *         <rel-path> <type> <index> <mode>
+ *
+ * re-path: relative path of the attribute on sysfs
+ * type: 's' for standard, 'e' for extended and 'p' for parameters
+ * index: the index inside the zio_ctrl_attr array
+ * mode: the R/W permission
+ */
+static int __print_attr_info(const char *path,
+			     struct zio_attribute_set *zattr_set, char *buf)
+{
+	struct zio_attribute *zattr;
+	int i, c = 0;
+	char t;
+
+	/* Print extended attributes */
+	for (i = 0; i < zattr_set->n_ext_attr; ++i) {
+		zattr = &zattr_set->ext_zattr[i];
+		t = zattr->flags & ZIO_ATTR_CONTROL ? 'e' : 'p';
+		c += sprintf(buf + c,"%s/%s %c %d %d\n",
+			     path, zattr->attr.attr.name, t,
+			     zattr->index, zattr->attr.attr.mode);
+	}
+
+	/* Print standard attributes */
+	if (!zattr_set->std_zattr)
+		return c;
+	for (i = 0; i < zattr_set->n_std_attr; ++i) {
+		if (zattr_set->std_zattr[i].index == ZIO_ATTR_INDEX_NONE)
+			continue;
+		c += sprintf(buf + c,"%s/%s s %d %d\n",
+			     path, zattr_set->std_zattr[i].attr.attr.name,
+			     zattr_set->std_zattr[i].index,
+			     zattr_set->std_zattr[i].attr.attr.mode);
+	}
+
+	return c;
+}
+
+/**
+ * Print the ZIO hierarchy using the following format
+ *  <N_cset>
+ *  <cset0_name> <n_chan_cset0> <cset0_type> ... <csetN_name> <n_chan_cset_N> <csetN_type>
+ */
+static int __print_hierachy(struct zio_device *zdev, char *buf)
+{
+	unsigned int i, c, s;
+
+	c = sprintf(buf, "%d\n", zdev->n_cset);
+	for (i = 0; i < zdev->n_cset; ++i) {
+		s = (zdev->cset[i].flags & ZIO_CSET_CHAN_INTERLEAVE ? 1 : 0);
+		c += sprintf(buf + c, "%s %d %c ",
+			     dev_name(&zdev->cset[i].head.dev),
+			     zdev->cset[i].n_chan - s,
+			     (s ? 'i' : 's')); /* */
+	}
+	c += sprintf(buf + c, "\n");
+
+	return c;
+}
+
+static inline int __total_attrs(struct zio_attribute_set *zattr_set)
+{
+	unsigned int i, count_std = 0;
+
+	for (i = 0 ; i < zattr_set->n_std_attr; ++i)
+		if (zattr_set->std_zattr[i].index == ZIO_ATTR_INDEX_NONE)
+			continue;
+		else
+			count_std++;
+	return count_std + zattr_set->n_ext_attr;
+}
+
+/**
+ * It prints the number of attribute for each ZIO object in the following order
+ *
+ *        <zdev> <cset0> <trg0> <ch00> <buf00> .. <ch0N> <buf0N> <cset1> ...
+ */
+static int __print_attrs_n(struct zio_device *zdev, char *buf)
+{
+	struct zio_cset *cset;
+	struct zio_channel *chan;
+	unsigned int c = 0, i, k, s = 0;
+
+	c = sprintf(buf, "%d ",
+		    __total_attrs(&zdev->zattr_set));
+        for (i = 0; i < zdev->n_cset; ++i) {
+		cset = &zdev->cset[i];
+		c += sprintf(buf + c, "%d ",
+			     __total_attrs(&cset->zattr_set));
+		c += sprintf(buf + c, "%d ",
+			     __total_attrs(&cset->ti->zattr_set));
+		s = (cset->flags & ZIO_CSET_CHAN_INTERLEAVE ? 1 : 0);
+		for (k = 0 ; k < zdev->cset[i].n_chan - s; ++k) {
+			chan = &cset->chan[k];
+			c += sprintf(buf + c, "%d ",
+				     __total_attrs(&chan->zattr_set));
+			c += sprintf(buf + c, "%d ",
+				     __total_attrs(&chan->bi->zattr_set));
+		}
+	}
+	c += sprintf(buf + c, "\n");
+	return c;
+}
+
+/**
+ * The function builds the attributes description string. In this string there
+ * is the list of all zio attributes. This allow a userspace application to
+ * automatically make sense of zio attribute inside zio_control (type 's',
+ * and 'e'). And to handle parameters.
+ *
+ * Each line represents an attribute.
+ */
+static ssize_t zio_show_attr_desc(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct zio_device *zdev = to_zio_dev(dev);
+	struct zio_channel *chan;
+	struct zio_cset *cset;
+	char path[32];
+	ssize_t count;
+	int i, k, s;
+
+	/* Print ZIO hierarchy */
+	count = __print_hierachy(zdev, buf);
+
+	/* Print attribute's counter */
+	count += __print_attrs_n(zdev, buf + count);
+
+	/* Device attribute */
+	count += __print_attr_info(".", &zdev->zattr_set, buf + count);
+	for (i = 0; i < zdev->n_cset; ++i) {
+		cset = &zdev->cset[i];
+
+		/* cset attribute */
+		snprintf(path, 32, "./%s", cset->head.name);
+		count += __print_attr_info(path, &cset->zattr_set,
+					   buf + count);
+
+		/* trigger attribute */
+		snprintf(path, 32, "./%s/trigger", cset->head.name);
+		count += __print_attr_info(path, &cset->ti->zattr_set,
+					   buf + count);
+		s = (cset->flags & ZIO_CSET_CHAN_INTERLEAVE ? 1 : 0);
+		for (k = 0; k < cset->n_chan - s; ++k) {
+			chan = &cset->chan[k];
+
+			/* channel attribute */
+			snprintf(path, 32, "./%s/%s", cset->head.name,
+				 chan->head.name);
+			count += __print_attr_info(path, &chan->zattr_set,
+						   buf + count);
+
+			/* buffer attribute */
+			snprintf(path, 32, "./%s/%s/buffer", cset->head.name,
+				 chan->head.name);
+			count += __print_attr_info(path, &chan->bi->zattr_set,
+						   buf + count);
+		}
+	}
+
+	return count;
+}
+
+/**
  * It configures the buffer preference:
  * 0 - it will keep the oldest block when the buffer is full
  * 1 - it will remove old blocks in order to store the new ones
@@ -962,6 +1132,7 @@ enum zio_default_attribute_numeration {
 	ZIO_DAN_ALAR,	/* alarms */
 	ZIO_DAN_DIRE,   /* direction */
 	ZIO_DAN_PREF,	/* prefer-new */
+	ZIO_DAN_DESC,	/* control description */
 };
 
 /* default zio attributes */
@@ -986,6 +1157,8 @@ static struct device_attribute zio_default_attributes[] = {
 				zio_show_dire, NULL),
 	[ZIO_DAN_PREF] = __ATTR(prefer-new, ZIO_RW_PERM,
 				zio_show_pref, zio_store_pref),
+	[ZIO_DAN_DESC] = __ATTR(device-description, ZIO_RO_PERM,
+				zio_show_attr_desc, NULL),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio objects */
@@ -1012,6 +1185,12 @@ static struct attribute *def_chan_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_ALAR].attr,
 	NULL,
 };
+
+/* default attributes for device */
+static struct attribute *def_dev_attrs_ptr[] = {
+	&zio_default_attributes[ZIO_DAN_DESC].attr,
+};
+
 /* default attributes for buffer instance */
 static struct attribute *def_bi_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_DNAM].attr,
@@ -1029,6 +1208,7 @@ enum zio_default_attribute_group_enumeration {
 	ZIO_DAG_CHAN,	/* Only for channel */
 	ZIO_DAG_BI,	/* Only for buffer instance */
 	ZIO_DAG_HIE,	/* Only within device hierarchy (dev, cset, chan) */
+	ZIO_DAG_DEV,	/* Only for device */
 };
 
 /* default zio groups */
@@ -1048,10 +1228,14 @@ static const struct attribute_group zio_groups[] = {
 	[ZIO_DAG_HIE] = {	/* group for all device hierarchy objects */
 		.attrs = def_hie_attrs_ptr,
 	},
+	[ZIO_DAG_DEV] = {	/* device only group */
+		.attrs = def_dev_attrs_ptr,
+	},
 };
 /* default groups for whole-device */
 const struct attribute_group *def_zdev_groups_ptr[] = {
 	&zio_groups[ZIO_DAG_ALL],
+	&zio_groups[ZIO_DAG_DEV],
 	&zio_groups[ZIO_DAG_HIE],
 	NULL,
 };
