@@ -98,17 +98,6 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 		chan->active_block = block;
 	}
 	i = cset->raw_io(cset);
-	if (i && i != -EAGAIN) {
-		/* Error: Free blocks */
-		dev_err(&ti->head.dev,
-			"raw_io failed (%i), cannot arm trigger\n", i);
-		chan_for_each(chan, cset) {
-			zio_buffer_free_block(chan->bi, chan->active_block);
-			chan->active_block = NULL;
-			chan->current_ctrl->zio_alarms |=
-							ZIO_ALARM_LOST_TRIGGER;
-		}
-	}
 
 	return i;
 }
@@ -116,22 +105,11 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 static int __zio_arm_output_trigger(struct zio_ti *ti)
 {
 	struct zio_cset *cset = ti->cset;
-	struct zio_channel *chan;
 	int i;
 
 	/* We are expected to already have a block in active channels */
 	i = cset->raw_io(cset);
-	if (i && i != -EAGAIN) {
-		/* Error: Free blocks */
-		dev_err(&ti->head.dev,
-			"raw_io failed (%i), cannot arm trigger\n", i);
-		chan_for_each(chan, cset) {
-			zio_buffer_free_block(chan->bi, chan->active_block);
-			chan->active_block = NULL;
-			chan->current_ctrl->zio_alarms |=
-							ZIO_ALARM_LOST_TRIGGER;
-		}
-	}
+
 	return i;
 }
 
@@ -144,6 +122,7 @@ static int __zio_trigger_data_done(struct zio_cset *cset);
  */
 void zio_arm_trigger(struct zio_ti *ti)
 {
+	struct zio_channel *chan;
 	unsigned long flags;
 	int ret;
 
@@ -166,9 +145,25 @@ void zio_arm_trigger(struct zio_ti *ti)
 		else
 			ret = __zio_arm_output_trigger(ti);
 
+		/* If arm fails release all active_blocks */
+		if (ret && ret != -EAGAIN) {
+			/* Error: Free blocks */
+			dev_err(&ti->head.dev,
+				"raw_io failed (%i), cannot arm trigger\n",
+				ret);
+			chan_for_each(chan, ti->cset) {
+				zio_buffer_free_block(chan->bi,
+						      chan->active_block);
+				chan->active_block = NULL;
+				chan->current_ctrl->zio_alarms |=
+							ZIO_ALARM_LOST_TRIGGER;
+			}
+		}
+
 		/* error or -EGAINA */
 		if (ret)
 			break;
+
 	} while (__zio_trigger_data_done(ti->cset));
 
 	if (ret == -EAGAIN)
