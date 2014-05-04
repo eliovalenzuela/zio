@@ -62,14 +62,6 @@ static irqreturn_t zti_handler(int irq, void *dev_id)
  * The trigger operations are the core of a trigger type
  */
 
-static int zti_config(struct zio_ti *ti, struct zio_control *ctrl)
-{
-	/* FIXME: config is not supported yet */
-
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	return 0;
-}
-
 static struct zio_ti *zti_create(struct zio_trigger_type *trig,
 				 struct zio_cset *cset,
 				 struct zio_control *ctrl, fmode_t flags)
@@ -116,9 +108,9 @@ static void zti_destroy(struct zio_ti *ti)
 static const struct zio_trigger_operations zti_trigger_ops = {
 	.push_block = zio_generic_push_block,
 	.pull_block = NULL,
-	.config = zti_config,
 	.create = zti_create,
 	.destroy = zti_destroy,
+	.config = zio_generic_config_trigger,
 };
 
 static struct zio_trigger_type zti_trigger = {

@@ -129,13 +129,6 @@ static void ztt_fn(unsigned long arg)
 /*
  * The trigger operations are the core of a trigger type
  */
-static int ztt_config(struct zio_ti *ti, struct zio_control *ctrl)
-{
-	/* FIXME: config is not supported yet */
-
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	return 0;
-}
 static void ztt_start_timer(struct ztt_instance *ztt)
 {
 	ztt->next_run = jiffies + 1;
@@ -195,10 +188,10 @@ static void ztt_change_status(struct zio_ti *ti, unsigned int status)
 static const struct zio_trigger_operations ztt_trigger_ops = {
 	.push_block = zio_generic_push_block,
 	.pull_block = NULL,
-	.config = ztt_config,
 	.create = ztt_create,
 	.destroy = ztt_destroy,
 	.change_status = ztt_change_status,
+	.config = zio_generic_config_trigger,
 };
 
 static struct zio_trigger_type ztt_trigger = {

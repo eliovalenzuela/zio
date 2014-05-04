@@ -102,7 +102,7 @@ struct zio_trigger_operations {
 					      struct zio_channel *chan);
 
 	int			(*config)(struct zio_ti *ti,
-					  struct zio_control *ctrl);
+					  struct zio_attr_config *zattr_cfg);
 
 	struct zio_ti *		(*create)(struct zio_trigger_type *trig,
 					  struct zio_cset *cset,
@@ -223,5 +223,10 @@ static inline int zio_trigger_try_push(struct zio_bi *bi,
 	bi->flags &=  ~ZIO_BI_PUSHING;
 	return pushed;
 }
+
+/* Internal trigger operations */
+int zio_generic_config_trigger(struct zio_ti *ti,
+			       struct zio_attr_config *zattr_cfg);
+
 
 #endif /* __ZIO_TRIGGER_H__ */

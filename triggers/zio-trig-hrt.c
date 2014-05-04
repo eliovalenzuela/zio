@@ -203,14 +203,6 @@ static int ztt_push_block(struct zio_ti *ti, struct zio_channel *chan,
 	return 0;
 }
 
-static int ztt_config(struct zio_ti *ti, struct zio_control *ctrl)
-{
-	/* FIXME: config is not supported yet */
-
-	pr_debug("%s:%d\n", __func__, __LINE__);
-	return 0;
-}
-
 static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 				 struct zio_cset *cset,
 				 struct zio_control *ctrl, fmode_t flags)
@@ -262,10 +254,10 @@ static void ztt_change_status(struct zio_ti *ti, unsigned int status)
 static const struct zio_trigger_operations ztt_trigger_ops = {
 	.push_block = ztt_push_block,
 	.pull_block = NULL,
-	.config = ztt_config,
 	.create = ztt_create,
 	.destroy = ztt_destroy,
 	.change_status = ztt_change_status,
+	.config = zio_generic_config_trigger,
 };
 
 static struct zio_trigger_type ztt_trigger = {

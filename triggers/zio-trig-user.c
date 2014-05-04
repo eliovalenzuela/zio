@@ -98,13 +98,6 @@ static void ztu_pull_block(struct zio_ti *ti, struct zio_channel *chan)
 	zio_arm_trigger(ti);
 }
 
-static int ztu_config(struct zio_ti *ti, struct zio_control *ctrl)
-{
-	pr_debug("%s:%d\n", __func__, __LINE__);
-
-	return 0;
-}
-
 static struct zio_ti *ztu_create(struct zio_trigger_type *trig,
 				 struct zio_cset *cset,
 				 struct zio_control *ctrl, fmode_t flags)
@@ -131,9 +124,9 @@ static const struct zio_trigger_operations ztu_trigger_ops = {
 	.data_done = ztu_data_done,
 	.push_block = ztu_push_block,
 	.pull_block = ztu_pull_block,
-	.config = ztu_config,
 	.create = ztu_create,
 	.destroy = ztu_destroy,
+	.config = zio_generic_config_trigger,
 };
 
 static struct zio_trigger_type ztu_trigger = {

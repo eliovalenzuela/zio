@@ -50,6 +50,13 @@ struct zio_obj_head {
 #define to_zio_cset(_dev) container_of(_dev, struct zio_cset, head.dev)
 #define to_zio_chan(_dev) container_of(_dev, struct zio_channel, head.dev)
 
+/* Used for configuration */
+struct zio_attr_config {
+	unsigned int n; /* number of zattr */
+	struct zio_attribute *zattr[ZIO_MAX_STD_ATTR + ZIO_MAX_EXT_ATTR]; /* attribute modified*/
+	uint32_t value[ZIO_MAX_STD_ATTR + ZIO_MAX_EXT_ATTR]; /* new values */
+};
+
 /*
  * __get_from_zobj: is used to get a zio object element that can be (with the
  *                  same name) in different zio object.
@@ -132,7 +139,8 @@ struct zio_device {
 	unsigned long				flags;
 	struct zio_attribute_set		zattr_set;
 	const struct zio_sysfs_operations	*s_op;
-
+	int (*config)(struct zio_device *zdev,
+		      struct zio_attr_config *zattr_cfg);
 	/* The full device is an array of csets */
 	struct zio_cset			*cset;
 	unsigned int			n_cset;
@@ -151,6 +159,10 @@ int __must_check zio_register_device(struct zio_device *zdev, const char *name,
 				    uint32_t dev_id);
 void zio_unregister_device(struct zio_device *zdev);
 struct zio_device *zio_find_device(char *name, uint32_t dev_id);
+
+/* Configuration prototype, from config.c */
+int zio_generic_config_device(struct zio_device *zdev,
+			      struct zio_attr_config *zattr_cfg);
 
 /*
  * zio_cset -- channel set: a group of channels with the same features
@@ -384,6 +396,9 @@ unsigned long zio_ffa_alloc(struct zio_ffa *ffa, size_t size, gfp_t gfp);
 void zio_ffa_free_s(struct zio_ffa *ffa, unsigned long addr, size_t size);
 void zio_ffa_dump(struct zio_ffa *ffa); /* diagnostics */
 void zio_ffa_reset(struct zio_ffa *ffa);
+
+/* from config.c */
+int zio_configure(struct zio_channel *chan, struct zio_control *ctrl);
 
 #endif /* __KERNEL__ */
 #endif /* __ZIO_H__ */

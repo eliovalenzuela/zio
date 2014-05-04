@@ -1,6 +1,6 @@
 
 zio-y := core.o chardev.o sysfs.o misc.o
-zio-y += bus.o objects.o helpers.o dma.o
+zio-y += bus.o objects.o helpers.o dma.o config.o
 zio-y += buffers/zio-buf-kmalloc.o triggers/zio-trig-user.o
 
 # Waiting for Kconfig...
