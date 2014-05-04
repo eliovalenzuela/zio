@@ -714,6 +714,7 @@ static int chan_register(struct zio_channel *chan, struct zio_channel *chan_t)
 		err = -ENOMEM;
 		goto out_zattr_check;
 	}
+	ctrl->seq_num = 1; /* 0 has special use on output configuration */
 	ctrl->nsamples = chan->cset->ti->nsamples;
 	ctrl->nbits = __get_nbits(chan); /* may be zero */
 	/* ctrl->addr.family = PF_ZIO */
