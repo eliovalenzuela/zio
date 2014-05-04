@@ -873,7 +873,30 @@ ssize_t zobj_read_cur_ctrl(struct file *file, struct kobject *kobj,
 	return count;
 }
 
-static ssize_t zobj_show_address(struct file *file, struct kobject *kobj,
+
+ssize_t zobj_write_cur_ctrl(struct file *file,struct kobject *kobj,
+			    struct bin_attribute *bin_attr,
+			    char *buf, loff_t off, size_t count)
+{
+	struct zio_channel *chan;
+	struct zio_control *ctrl = (struct zio_control *)buf;
+	int err;
+
+	if (off !=0 || count != bin_attr->size)
+		return -EINVAL;
+	chan = to_zio_chan(container_of(kobj, struct device, kobj));
+	if (!chan && !chan->current_ctrl) {
+		/* ZIO has problem, chan e its current control must exist */
+		WARN(1, "Current control does not exist");
+		return -EINVAL;
+	}
+	err = zio_configure(chan, ctrl);
+
+	return err ? err : count;
+}
+
+
+static ssize_t zobj_show_address(struct file *file,struct kobject *kobj,
 				 struct bin_attribute *bin_attr,
 				 char *buf, loff_t off, size_t count)
 {
@@ -899,9 +922,10 @@ static ssize_t zobj_show_address(struct file *file, struct kobject *kobj,
 
 struct bin_attribute zio_bin_attr[] = {
 	[ZIO_BIN_CTRL] = {
-		.attr = { .name = "current-control", .mode = ZIO_RO_PERM, },
+		.attr = { .name = "current-control", .mode = ZIO_RW_PERM, },
 		.size = __ZIO_CONTROL_SIZE, /* changed at runtime for TLV */
 		.read = zobj_read_cur_ctrl,
+		.write = zobj_write_cur_ctrl,
 	},
 	[ZIO_BIN_ADDR] = {
 		.attr = { .name = "address", .mode = ZIO_RO_PERM, },
