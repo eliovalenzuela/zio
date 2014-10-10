@@ -14,6 +14,7 @@
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
+#include <linux/zio-trigger.h>
 
 #define ZZERO_VERSION ZIO_HEX_VERSION(1, 1, 0)
 
@@ -114,7 +115,9 @@ static int zzero_input_8(struct zio_cset *cset)
 			break;
 		}
 	}
-	return 0; /* Already done */
+
+	zio_trigger_data_done(cset);
+	return 0;
 }
 /* 32 bits input function */
 static int zzero_input_32(struct zio_cset *cset)
@@ -128,12 +131,14 @@ static int zzero_input_32(struct zio_cset *cset)
 		return 0;
 	zzero_get_sequence(chan, block->data, block->datalen);
 
-	return 0; /* Already done */
+	zio_trigger_data_done(cset);
+	return 0;
 }
 static int zzero_output(struct zio_cset *cset)
 {
 	/* We just eat data, like /dev/zero and /dev/null */
-	return 0; /* Already done */
+	zio_trigger_data_done(cset);
+	return 0;
 }
 
 static int zzero_conf_set(struct device *dev, struct zio_attribute *zattr,

@@ -219,7 +219,7 @@ static int ad788x_input_cset(struct zio_cset *cset)
 	/* start acquisition */
 	err = spi_async_locked(ad788x->spi, &context->message);
 	if (!err)
-		return -EAGAIN;
+		return 0; /* no errors */
 
 	kfree(context->transfer.tx_buf);
 err_alloc_tx:

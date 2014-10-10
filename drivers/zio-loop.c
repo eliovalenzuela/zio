@@ -182,7 +182,7 @@ static int zloop_raw_output(struct zio_cset *cset)
 		 */
 		data = zloop_cdata + index;
 		wake_up_interruptible(&data->q);
-		return -EAGAIN;
+		return 0;
 	}
 	return -EOPNOTSUPP; /* never */
 }
@@ -195,7 +195,7 @@ static int zloop_raw_input(struct zio_cset *cset)
 	case ZLOOP_CSET_IN_LOOP:
 		return zloop_try_complete(cset->zdev, cset->index);
 	case ZLOOP_CSET_IN_DATA:
-		return -EAGAIN; /* FIXME */
+		return 0;
 	}
 	return -EOPNOTSUPP; /* never */
 }

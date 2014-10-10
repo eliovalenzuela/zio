@@ -886,6 +886,8 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 	struct zio_channel *chan_tmp;
 	struct zio_ti *ti = NULL;
 
+	INIT_WORK(&cset->w_start_acq, zio_start_acq_work);
+
 	cset->head.zobj_type = ZIO_CSET;
 	zio_cset_assign_flags(cset, cset_t);
 	if (cset->flags & ZIO_CSET_CHAN_INTERLEAVE)

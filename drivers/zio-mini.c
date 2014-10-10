@@ -11,6 +11,7 @@
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
+#include <linux/zio-trigger.h>
 
 ZIO_PARAM_TRIGGER(zmini_trigger);
 ZIO_PARAM_BUFFER(zmini_buffer);
@@ -38,7 +39,9 @@ static int zmini_input(struct zio_cset *cset)
 		block->datalen = sizeof(struct timespec);
 		getnstimeofday(block->data);
 	}
-	return 0; /* Already done */
+
+	zio_trigger_data_done(cset);
+	return 0;
 }
 static struct zio_cset zmini_cset[] = {
 	{

@@ -187,6 +187,8 @@ struct zio_cset {
 	char			*default_trig;
 
 	struct zio_attribute	*cset_attrs;
+
+	struct work_struct w_start_acq; /**< start acquisition */
 };
 
 /* first 4bit are reserved for zio object universal flags */
@@ -201,6 +203,7 @@ enum zio_cset_flags {
 	ZIO_CSET_CHAN_INTERLEAVE= 0x200, /* 1 if cset can interleave */
 	ZIO_CSET_INTERLEAVE_ONLY= 0x400, /* 1 if interleave only */
 	ZIO_CSET_HW_BUSY	= 0x800, /* set by driver, delays abort */
+	ZIO_CSET_STARTING       = 0x1000, /* 1 if raw_io() is running */
 };
 
 /* Check the flags so we know whether to arm immediately or not */

@@ -20,6 +20,7 @@
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
+#include <linux/zio-trigger.h>
 
 #define ZGPIO_NOUT 8
 #define ZGPIO_NIN 8
@@ -84,7 +85,9 @@ static int zgp_input(struct zio_cset *cset)
 			((unsigned char *)block->data)[j] = datum;
 		}
 	}
-	return 0; /* done */
+
+	zio_trigger_data_done(cset);
+	return 0;
 }
 
 static struct zio_cset zgp_cset[] = {

@@ -72,7 +72,7 @@ static int zdtc_raw_io(struct zio_cset *cset)
 	zdtc.ts = ts;
 	hrtimer_start_range_ns(&zdtc.timer, ktime, ZDTC_SLACK,
 			       HRTIMER_MODE_ABS);
-	return -EAGAIN; /* Will data_done later */
+	return 0;
 }
 
 static int zdtc_probe(struct zio_device *zdev)

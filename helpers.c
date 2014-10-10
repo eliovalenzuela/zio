@@ -17,6 +17,8 @@
 #include <linux/zio-trigger.h>
 #include "zio-internal.h"
 
+static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
+
 static void __zio_internal_abort_free(struct zio_cset *cset)
 {
 	struct zio_channel *chan;
@@ -46,7 +48,7 @@ int __zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 	spin_lock_irqsave(&cset->lock, flags);
 
 	/* If we are hardware-busy, cannot abort (the caller may retry) */
-	if (cset->flags & ZIO_CSET_HW_BUSY) {
+	if (cset->flags & (ZIO_CSET_HW_BUSY | ZIO_CSET_STARTING)) {
 		spin_unlock_irqrestore(&cset->lock, flags);
 		return -EAGAIN;
 	}
@@ -74,7 +76,7 @@ int __zio_trigger_abort_disable(struct zio_cset *cset, int disable)
 }
 EXPORT_SYMBOL(__zio_trigger_abort_disable);
 
-static int __zio_arm_input_trigger(struct zio_ti *ti)
+static void __zio_arm_input_trigger(struct zio_ti *ti)
 {
 	struct zio_buffer_type *zbuf;
 	struct zio_block *block;
@@ -82,7 +84,7 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 	struct zio_cset *cset;
 	struct zio_channel *chan;
 	struct zio_control *ctrl;
-	int i, datalen;
+	int datalen;
 
 	cset = ti->cset;
 	zdev = cset->zdev;
@@ -97,20 +99,11 @@ static int __zio_arm_input_trigger(struct zio_ti *ti)
 		/* If alloc error, it is reported at data_done time */
 		chan->active_block = block;
 	}
-	i = cset->raw_io(cset);
-
-	return i;
 }
 
-static int __zio_arm_output_trigger(struct zio_ti *ti)
+static void __zio_arm_output_trigger(struct zio_ti *ti)
 {
-	struct zio_cset *cset = ti->cset;
-	int i;
-
-	/* We are expected to already have a block in active channels */
-	i = cset->raw_io(cset);
-
-	return i;
+	/* Nothing to do for the time being */
 }
 
 static int __zio_trigger_data_done(struct zio_cset *cset);
@@ -122,57 +115,36 @@ static int __zio_trigger_data_done(struct zio_cset *cset);
  */
 void zio_arm_trigger(struct zio_ti *ti)
 {
-	struct zio_channel *chan;
 	unsigned long flags;
-	int ret;
-
-	do {
-		/* if trigger is disabled or already pending, return */
-		spin_lock_irqsave(&ti->cset->lock, flags);
-		if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
-			     (ti->flags & ZIO_TI_ARMED))) {
-			spin_unlock_irqrestore(&ti->cset->lock, flags);
-			return;
-		}
-		ti->flags |= ZIO_TI_ARMED;
-		getnstimeofday(&ti->tstamp);
-		spin_unlock_irqrestore(&ti->cset->lock, flags);
-
-		if (ti->t_op->arm)
-			ret = ti->t_op->arm(ti);
-		else if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
-			ret = __zio_arm_input_trigger(ti);
-		else
-			ret = __zio_arm_output_trigger(ti);
-
-		/* If arm fails release all active_blocks */
-		if (ret && ret != -EAGAIN) {
-			/* Error: Free blocks */
-			dev_err(&ti->head.dev,
-				"raw_io failed (%i), cannot arm trigger\n",
-				ret);
-			chan_for_each(chan, ti->cset) {
-				zio_buffer_free_block(chan->bi,
-						      chan->active_block);
-				chan->active_block = NULL;
-				chan->current_ctrl->zio_alarms |=
-							ZIO_ALARM_LOST_TRIGGER;
-			}
-		}
-
-		/* error or -EGAINA */
-		if (ret)
-			break;
-
-	} while (__zio_trigger_data_done(ti->cset));
-
-	if (ret == -EAGAIN)
-		return;
-
-	/* real error: un-arm */
+	int ret = 0;
+	/* if trigger is disabled or already pending, return */
 	spin_lock_irqsave(&ti->cset->lock, flags);
-	ti->flags &= ~ZIO_TI_ARMED;
+	if (unlikely((ti->flags & ZIO_STATUS) == ZIO_DISABLED ||
+		     (ti->flags & ZIO_TI_ARMED))) {
+		spin_unlock_irqrestore(&ti->cset->lock, flags);
+		return;
+	}
+	ti->flags |= ZIO_TI_ARMED;
+	getnstimeofday(&ti->tstamp);
 	spin_unlock_irqrestore(&ti->cset->lock, flags);
+
+	/* Arm the trigger */
+	if (ti->t_op->arm)
+		ret = ti->t_op->arm(ti);
+	else if (likely((ti->flags & ZIO_DIR) == ZIO_DIR_INPUT))
+		__zio_arm_input_trigger(ti);
+	else
+		__zio_arm_output_trigger(ti);
+
+	if (ret) {
+		spin_lock_irqsave(&ti->cset->lock, flags);
+		ti->flags &= ~ZIO_TI_ARMED;
+		spin_unlock_irqrestore(&ti->cset->lock, flags);
+		return ;
+	}
+
+	/* ARM successful, schedule start acquisition process */
+	queue_work(zstat->wq_zio, &ti->cset->w_start_acq);
 }
 EXPORT_SYMBOL(zio_arm_trigger);
 

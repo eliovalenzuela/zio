@@ -49,6 +49,8 @@ struct zio_status {
 	struct zio_object_list	all_devices;
 	struct zio_object_list	all_trigger_types;
 	struct zio_object_list	all_buffer_types;
+
+	struct workqueue_struct *wq_zio; /**< dedicated workqueue */
 };
 
 extern struct zio_status zio_global_status;
@@ -96,5 +98,8 @@ extern void __zdev_unregister(struct zio_device *zdev);
 extern struct zio_device *zio_device_find_child(struct zio_device *parent);
 extern int zio_change_current_trigger(struct zio_cset *cset, char *name);
 extern int zio_change_current_buffer(struct zio_cset *cset, char *name);
+
+/* Defined in core.c */
+void zio_start_acq_work(struct work_struct *work);
 
 #endif /* ZIO_INTERNAL_H_ */

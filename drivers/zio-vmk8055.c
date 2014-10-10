@@ -217,7 +217,7 @@ static int zvmk80xx_generic_raw_io(struct zio_cset *cset)
 	/* Program the next usb transfer */
 	zvmk80xx_send_urb((unsigned long)zvmk80xx_cset);
 
-	return -EAGAIN;
+	return 0;
 }
 
 

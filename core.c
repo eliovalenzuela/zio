@@ -14,6 +14,7 @@
 #include <linux/string.h>
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
+#include <linux/zio-trigger.h>
 #include "zio-internal.h"
 
 const uint32_t zio_version = ZIO_VERSION(__ZIO_MAJOR_VERSION,
@@ -25,6 +26,41 @@ static struct zio_status *zstat = &zio_global_status; /* Always use ptr */
  * We use a local slab for control structures.
  */
 static struct kmem_cache *zio_ctrl_slab;
+
+/**
+ * This function will be executed to prepare the device for an
+ * incoming I/O event. This will be executed as a different thread when
+ * the trigger is armed but before its fire.
+ */
+void zio_start_acq_work(struct work_struct *work)
+{
+	struct zio_cset *cset = container_of(work, struct zio_cset,
+					     w_start_acq);
+	unsigned long flags;
+	int err;
+
+	/* Mark that this cset is preparing its I/O */
+	spin_lock_irqsave(&cset->lock, flags);
+	cset->flags |= ZIO_CSET_STARTING;
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	/* Configure the device for the incoming I/O */
+	err = cset->raw_io(cset);
+
+	/* Mark that the cset is prepared for the I/O */
+	spin_lock_irqsave(&cset->lock, flags);
+	cset->flags &= ~ZIO_CSET_STARTING;
+	spin_unlock_irqrestore(&cset->lock, flags);
+
+	/* Disarm the trigger on error */
+	if (err != 0 && err != -EAGAIN) {
+		/* FIXME in some release remove the -EAGAIN, is an error like
+		   any other */
+		zio_trigger_abort_disable(cset, 0);
+		dev_err(&cset->head.dev,
+			"Cannot start acquisition (error %d)\n", err);
+	}
+}
 
 struct zio_control *zio_alloc_control(gfp_t gfp)
 {
@@ -130,6 +166,11 @@ static int __init zio_init(void)
 	if (err)
 		goto out_cdev;
 
+        zstat->wq_zio = alloc_workqueue("zio-wq",
+					WQ_HIGHPRI | WQ_MEM_RECLAIM, 1);
+	if (!zstat->wq_zio)
+		goto out_wq;
+
 	spin_lock_init(&zstat->lock);
 	INIT_LIST_HEAD(&zstat->all_devices.list);
 	zstat->all_devices.zobj_type = ZIO_DEV;
@@ -151,6 +192,8 @@ static int __init zio_init(void)
 	pr_info("zio-core had been loaded\n");
 	return 0;
 
+out_wq:
+	zio_unregister_cdev();
 out_cdev:
 	bus_unregister(&zio_bus_type);
 out:
@@ -164,6 +207,7 @@ static void __exit zio_exit(void)
 	zio_default_trigger_exit();
 	zio_default_buffer_exit();
 
+	flush_workqueue(zstat->wq_zio);
 	/* Remove char device */
 	zio_unregister_cdev();
 	/* Remove ZIO bus */

@@ -118,7 +118,7 @@ static int ztdc_input(struct zio_cset *cset)
 		if (cset->index == 0 && chan->active_block->datalen == 0)
 			return -EINVAL;
 	}
-	return -EAGAIN; /* Will data_done later */
+	return 0;
 }
 
 /*
