@@ -19,9 +19,14 @@
  * @dev_mem_off: device memory offset where retrieve data for this block
  */
 struct zio_blocks_sg {
+	struct sg_table sgt;
 	struct zio_block *block;
 	unsigned int first_nent;
 	unsigned long dev_mem_off;
+
+	unsigned int offset;
+	struct page **pages;
+	unsigned int n_pages;
 };
 
 /**
@@ -42,6 +47,7 @@ struct zio_dma_sgt {
 	struct sg_table sgt;
 	size_t page_desc_size;
 	size_t page_desc_pool_size;
+
 	void *page_desc_pool; /**< kmalloc */
 	void *page_desc_next; /**< next free page */
 	dma_addr_t page_desc_pool_dma; /**< dma address */
