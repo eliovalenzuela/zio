@@ -74,5 +74,6 @@ extern void zio_dma_free_sg(struct zio_dma_sgt *zdma);
 extern int zio_dma_map_sg(struct zio_dma_sgt *zdma, size_t page_desc_size,
 			  int (*fill_desc)(struct zio_dma_sg *zsg));
 extern void zio_dma_unmap_sg(struct zio_dma_sgt *zdma);
+extern void zio_dma_error(struct zio_dma_sgt *zdma);
 
 #endif /* ZIO_HELPERS_H_ */
