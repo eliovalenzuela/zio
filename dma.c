@@ -15,7 +15,9 @@
 #include <linux/dma-mapping.h>
 
 #include <linux/zio-dma.h>
+#include <linux/zio-buffer.h>
 #include "zio-internal.h"
+
 
 static int zio_calculate_nents(struct zio_blocks_sg *sg_blocks,
 			       unsigned int n_blocks)
@@ -302,3 +304,24 @@ void zio_dma_unmap_sg(struct zio_dma_sgt *zdma)
 	zdma->page_desc_pool = NULL;
 }
 EXPORT_SYMBOL(zio_dma_unmap_sg);
+
+
+/**
+ * Notify zio about a DMA error so it can clean up ZIO structures,
+ * free all blocks programmed for the DMA and the active_block
+ * then, it raises the LOST_BLOCK alarm.
+ */
+void zio_dma_error(struct zio_dma_sgt *zdma)
+{
+	struct zio_channel *chan = zdma->chan;
+	int i;
+
+	/*
+	 * If the DMA transfer fail, the current block is not valid
+	 * then remove it and raise an alarm
+	 */
+	zio_buffer_free_block(chan->bi,	chan->active_block);
+	chan->active_block = NULL;
+	chan->current_ctrl->zio_alarms |= ZIO_ALARM_LOST_BLOCK;
+}
+EXPORT_SYMBOL(zio_dma_error);
