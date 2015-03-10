@@ -22,25 +22,16 @@
 static int zio_calculate_nents(struct zio_blocks_sg *sg_blocks,
 			       unsigned int n_blocks)
 {
-	int i, bytesleft;
+	int i, nents = 0;
 	void *bufp;
-	int mapbytes;
-	int nents = 0;
 
 	for (i = 0; i < n_blocks; ++i) {
-		bytesleft = sg_blocks[i].block->datalen;
 		bufp = sg_blocks[i].block->data;
 		sg_blocks[i].first_nent = nents;
-		while (bytesleft) {
-			nents++;
-			if (bytesleft < (PAGE_SIZE - offset_in_page(bufp)))
-				mapbytes = bytesleft;
-			else
-				mapbytes = PAGE_SIZE - offset_in_page(bufp);
-			bufp += mapbytes;
-			bytesleft -= mapbytes;
-		}
+
+		nents += sg_blocks[i].block->datalen / PAGE_SIZE + 1;
 	}
+
 	return nents;
 }
 
