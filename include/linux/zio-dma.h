@@ -41,6 +41,7 @@ struct zio_dma_sgt {
 	unsigned int n_blocks;
 	struct sg_table sgt;
 	size_t page_desc_size;
+	size_t page_desc_pool_size;
 	void *page_desc_pool;
 	dma_addr_t dma_page_desc_pool;
 };

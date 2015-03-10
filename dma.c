@@ -19,6 +19,56 @@
 #include "zio-internal.h"
 
 
+/**
+ * It allocate a DMA area for the transfers pool
+ * @param[in] zdma zio DMA descriptor from zio_dma_alloc_sg()
+ * @param[in] page_desc_size size of the transfer descriptor of the hardware
+ */
+static int __zio_dma_alloc_pool(struct zio_dma_sgt *zdma, size_t page_desc_size)
+{
+	/* Prepare the transfers pool area */
+	zdma->page_desc_size = page_desc_size;
+	zdma->page_desc_pool_size = zdma->page_desc_size * zdma->sgt.nents;
+	zdma->page_desc_pool = kzalloc(zdma->page_desc_pool_size,
+				       GFP_ATOMIC | GFP_DMA);
+	if (!zdma->page_desc_pool) {
+		dev_err(zdma->hwdev, "cannot allocate coherent dma memory\n");
+		return -ENOMEM;
+	}
+
+	/* Allocate a DMA area to store the DMA transfers */
+	zdma->dma_page_desc_pool = dma_map_single(zdma->hwdev,
+						  zdma->page_desc_pool,
+						  zdma->page_desc_pool_size,
+						  DMA_TO_DEVICE);
+	if (!zdma->dma_page_desc_pool) {
+		kfree(zdma->page_desc_pool);
+		return -ENOMEM;
+	}
+
+	pr_debug("%s:%d DMA transfer pool allocated for max %d transfers\n",
+		 __func__, __LINE__, zdma->sgt.nents);
+	return 0;
+}
+
+
+/**
+ * It free a DMA area for the transfers pool
+ * @param[in] zdma zio DMA descriptor from zio_dma_alloc_sg()
+ */
+static void __zio_dma_free_pool(struct zio_dma_sgt *zdma)
+{
+       dma_unmap_single(zdma->hwdev, zdma->dma_page_desc_pool,
+                        zdma->page_desc_pool_size, DMA_TO_DEVICE);
+       kfree(zdma->page_desc_pool);
+
+       /* Clear data */
+       zdma->page_desc_pool_size = 0;
+       zdma->dma_page_desc_pool = 0;
+       zdma->page_desc_pool = NULL;
+}
+
+
 static int zio_calculate_nents(struct zio_blocks_sg *sg_blocks,
 			       unsigned int n_blocks)
 {
@@ -199,26 +249,13 @@ int zio_dma_map_sg(struct zio_dma_sgt *zdma, size_t page_desc_size,
 	struct scatterlist *sg;
 	struct zio_dma_sg zsg;
 	void *item_ptr;
-	size_t size;
 
-	if (unlikely(!zdma || !fill_desc))
+	if (unlikely(!zdma || !fill_desc || !page_desc_size))
 		return -EINVAL;
 
-	/* Limited to 32-bit (kernel limit) */
-	zdma->page_desc_size = page_desc_size;
-	size = zdma->page_desc_size * zdma->sgt.nents;
-	zdma->page_desc_pool = kzalloc(size, GFP_ATOMIC);
-	if (!zdma->page_desc_pool) {
-		dev_err(zdma->hwdev, "cannot allocate coherent dma memory\n");
-		return -ENOMEM;
-	}
-	zdma->dma_page_desc_pool = dma_map_single(zdma->hwdev,
-						  zdma->page_desc_pool, size,
-						  DMA_TO_DEVICE);
-	if (!zdma->dma_page_desc_pool) {
-		err = -ENOMEM;
-		goto out_map_single;
-	}
+	err = __zio_dma_alloc_pool(zdma, page_desc_size);
+	if (err)
+		return err;
 
 	/* Map DMA buffers */
 	sglen = dma_map_sg(zdma->hwdev, zdma->sgt.sgl, zdma->sgt.nents,
@@ -266,10 +303,7 @@ out_fill_desc:
 	dma_unmap_sg(zdma->hwdev, zdma->sgt.sgl, zdma->sgt.nents,
 		     DMA_FROM_DEVICE);
 out_map_sg:
-	dma_unmap_single(zdma->hwdev, zdma->dma_page_desc_pool, size,
-			 DMA_TO_DEVICE);
-out_map_single:
-	kfree(zdma->page_desc_pool);
+	__zio_dma_free_pool(zdma);
 
 	return err;
 }
@@ -289,11 +323,8 @@ void zio_dma_unmap_sg(struct zio_dma_sgt *zdma)
 	size = zdma->page_desc_size * zdma->sgt.nents;
 	dma_unmap_sg(zdma->hwdev, zdma->sgt.sgl, zdma->sgt.nents,
 		     DMA_FROM_DEVICE);
-	dma_unmap_single(zdma->hwdev, zdma->dma_page_desc_pool, size,
-			 DMA_TO_DEVICE);
-	kfree(zdma->page_desc_pool);
-	zdma->dma_page_desc_pool = 0;
-	zdma->page_desc_pool = NULL;
+
+	__zio_dma_free_pool(zdma);
 }
 EXPORT_SYMBOL(zio_dma_unmap_sg);
 
