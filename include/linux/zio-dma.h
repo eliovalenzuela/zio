@@ -42,8 +42,12 @@ struct zio_dma_sgt {
 	struct sg_table sgt;
 	size_t page_desc_size;
 	size_t page_desc_pool_size;
-	void *page_desc_pool;
-	dma_addr_t dma_page_desc_pool;
+	void *page_desc_pool; /**< kmalloc */
+	void *page_desc_next; /**< next free page */
+	dma_addr_t page_desc_pool_dma; /**< dma address */
+	dma_addr_t page_desc_pool_dma_next; /**< next free page DMA address */
+
+	unsigned long size;
 };
 
 /**
