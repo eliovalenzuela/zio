@@ -28,6 +28,7 @@ static int __zio_dma_alloc_pool(struct zio_dma_sgt *zdma, size_t page_desc_size)
 {
 	/* Prepare the transfers pool area */
 	zdma->page_desc_size = page_desc_size;
+
 	zdma->page_desc_pool_size = zdma->page_desc_size * zdma->sgt.nents;
 	zdma->page_desc_pool = kzalloc(zdma->page_desc_pool_size,
 				       GFP_ATOMIC | GFP_DMA);
@@ -37,11 +38,11 @@ static int __zio_dma_alloc_pool(struct zio_dma_sgt *zdma, size_t page_desc_size)
 	}
 
 	/* Allocate a DMA area to store the DMA transfers */
-	zdma->dma_page_desc_pool = dma_map_single(zdma->hwdev,
+	zdma->page_desc_pool_dma = dma_map_single(zdma->hwdev,
 						  zdma->page_desc_pool,
 						  zdma->page_desc_pool_size,
 						  DMA_TO_DEVICE);
-	if (!zdma->dma_page_desc_pool) {
+	if (!zdma->page_desc_pool_dma) {
 		kfree(zdma->page_desc_pool);
 		return -ENOMEM;
 	}
@@ -58,13 +59,13 @@ static int __zio_dma_alloc_pool(struct zio_dma_sgt *zdma, size_t page_desc_size)
  */
 static void __zio_dma_free_pool(struct zio_dma_sgt *zdma)
 {
-       dma_unmap_single(zdma->hwdev, zdma->dma_page_desc_pool,
+       dma_unmap_single(zdma->hwdev, zdma->page_desc_pool_dma,
                         zdma->page_desc_pool_size, DMA_TO_DEVICE);
        kfree(zdma->page_desc_pool);
 
        /* Clear data */
        zdma->page_desc_pool_size = 0;
-       zdma->dma_page_desc_pool = 0;
+       zdma->page_desc_pool_dma = 0;
        zdma->page_desc_pool = NULL;
 }
 
@@ -248,7 +249,6 @@ int zio_dma_map_sg(struct zio_dma_sgt *zdma, size_t page_desc_size,
 	uint32_t dev_mem_off = 0;
 	struct scatterlist *sg;
 	struct zio_dma_sg zsg;
-	void *item_ptr;
 
 	if (unlikely(!zdma || !fill_desc || !page_desc_size))
 		return -EINVAL;
@@ -266,6 +266,8 @@ int zio_dma_map_sg(struct zio_dma_sgt *zdma, size_t page_desc_size,
 	}
 
 	i_blk = 0;
+	zdma->page_desc_next = zdma->page_desc_pool;
+	zdma->page_desc_pool_dma_next = zdma->page_desc_pool_dma;
 	for_each_sg(zdma->sgt.sgl, sg, zdma->sgt.nents, i) {
 		dev_dbg(zdma->hwdev, "%d 0x%x\n", i, dev_mem_off);
 		if (i_blk < zdma->n_blocks && i == zdma->sg_blocks[i_blk].first_nent) {
@@ -279,15 +281,22 @@ int zio_dma_map_sg(struct zio_dma_sgt *zdma, size_t page_desc_size,
 			}
 		}
 
-		item_ptr = zdma->page_desc_pool + (zdma->page_desc_size * i);
-
  		/* Configure hardware pages */
 		zsg.zsgt = zdma;
 		zsg.sg = sg;
 		zsg.dev_mem_off = dev_mem_off;
-		zsg.page_desc = item_ptr;
+		zsg.page_desc = zdma->page_desc_next;
 		zsg.block_idx = i_blk;
 		zsg.page_idx= i;
+
+		dev_dbg(zdma->hwdev, "%d/%d DMA page_desc addr: 0x%lx\n", i, i_blk,
+			zdma->page_desc_pool_dma_next);
+
+		/* Point to the next free DMA slot for page descriptors */
+		zdma->page_desc_next += zdma->page_desc_size;
+		zdma->page_desc_pool_dma_next += zdma->page_desc_size;
+
+		/* Ask driver to fill the page descriptor */
 		err = fill_desc(&zsg);
 		if (err) {
 			dev_err(zdma->hwdev, "Cannot fill descriptor %d\n", i);
