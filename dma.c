@@ -286,10 +286,11 @@ int zio_dma_map_sg(struct zio_dma_sgt *zdma, size_t page_desc_size,
 		zsg.sg = sg;
 		zsg.dev_mem_off = dev_mem_off;
 		zsg.page_desc = zdma->page_desc_next;
-		zsg.block_idx = i_blk;
+		zsg.block_idx = i_blk - 1;
 		zsg.page_idx= i;
 
-		dev_dbg(zdma->hwdev, "%d/%d DMA page_desc addr: 0x%lx\n", i, i_blk,
+		dev_dbg(zdma->hwdev, "%d/%d DMA page_desc addr: 0x%lx\n",
+			zsg.page_idx, zsg.block_idx,
 			zdma->page_desc_pool_dma_next);
 
 		/* Point to the next free DMA slot for page descriptors */
