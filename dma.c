@@ -83,7 +83,7 @@ static int zio_calculate_nents(struct zio_blocks_sg *sg_blocks,
 		nents += sg_blocks[i].block->datalen / PAGE_SIZE + 1;
 	}
 
-	return nents;
+	return 1;//nents;
 }
 
 static void zio_dma_setup_scatter(struct zio_dma_sgt *zdma)
@@ -95,6 +95,7 @@ static void zio_dma_setup_scatter(struct zio_dma_sgt *zdma)
 	int i, i_blk;
 
 	i_blk = 0;
+	#if 0
 	for_each_sg(zdma->sgt.sgl, sg, zdma->sgt.nents, i) {
 		if (i_blk < zdma->n_blocks && i == zdma->sg_blocks[i_blk].first_nent) {
 			WARN(bytesleft, "unmapped byte in block %i\n",
@@ -133,6 +134,11 @@ static void zio_dma_setup_scatter(struct zio_dma_sgt *zdma)
 		pr_debug("sg item (%p(+0x%lx), len:%d, left:%d)\n",
 			 virt_to_page(bufp), offset_in_page(bufp),
 			 mapbytes, bytesleft);
+	}
+	#endif
+	for_each_sg(zdma->sgt.sgl, sg, zdma->sgt.nents, i) {
+	  sg_set_page(sg, virt_to_page(bufp), zdma->sg_blocks[i_blk].block->datalen,
+		      offset_in_page(bufp));
 	}
 }
 
