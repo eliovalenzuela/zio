@@ -18,3 +18,6 @@ clean:
 
 %: %.c
 	$(CC) $(CFLAGS) $^ -o $@
+
+zio-dump: zio-dump.c
+	$(CC) $(CFLAGS) $^ -o $@ -static -L$(ZIO)/lib -lzio

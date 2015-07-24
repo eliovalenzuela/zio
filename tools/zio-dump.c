@@ -14,46 +14,15 @@
 #include <sys/select.h>
 
 #include <linux/zio-user.h>
+#include <libzio.h>
 
 static char git_version[] = "version: " GIT_VERSION;
 
 unsigned char buf[1024*1024];
 char *prgname;
 int opt_print_attr;
-int opt_print_memaddr;
 int reduce = -1; /**< number of bytes to show at begin/end of the buffer */
 
-void print_attr_set(char *name, int nattr, uint32_t mask, uint32_t *val)
-{
-	int all = (opt_print_attr == 2);
-	int i;
-
-	if (!(all || mask))
-		return;
-
-	if (nattr == 16)
-		printf("Ctrl: %s-mask: 0x%04x\n", name, mask);
-	else
-		printf("Ctrl: %s-mask: 0x%04x\n", name, mask);
-	for (i = 0; i < nattr; ++i) {
-		if (!(all || (mask & (1 << i))))
-			continue;
-		printf ("Ctrl: %s-%-2i  0x%08x %9i\n",
-			name, i, val[i], val[i]);
-	}
-}
-
-void print_attributes(struct zio_control *ctrl)
-{
-	print_attr_set("device-std", 16, ctrl->attr_channel.std_mask,
-		       ctrl->attr_channel.std_val);
-	print_attr_set("device-ext", 32, ctrl->attr_channel.ext_mask,
-		       ctrl->attr_channel.ext_val);
-	print_attr_set("trigger-std", 16, ctrl->attr_trigger.std_mask,
-		       ctrl->attr_trigger.std_val);
-	print_attr_set("trigger-ext", 32, ctrl->attr_trigger.ext_mask,
-		       ctrl->attr_trigger.ext_val);
-}
 
 void print_buffer(int start, int end)
 {
@@ -132,33 +101,18 @@ void read_channel(int cfd, int dfd, FILE *log)
 			fprintf(stderr, "%s: warning: minor version mismatch\n",
 				prgname);
 	}
+	zio_control_print_to_file_basic(stdout, &ctrl);
+	if (opt_print_attr) {
+		zio_control_print_to_file_attr(stdout, ZIO_CTRL_ATTR_DEV_STD,
+					       &ctrl);
+		zio_control_print_to_file_attr(stdout, ZIO_CTRL_ATTR_DEV_EXT,
+					       &ctrl);
+		zio_control_print_to_file_attr(stdout, ZIO_CTRL_ATTR_TRG_STD,
+					       &ctrl);
+		zio_control_print_to_file_attr(stdout, ZIO_CTRL_ATTR_TRG_EXT,
+					       &ctrl);
 
-	printf("Ctrl: version %i.%i, trigger %.16s, dev %.16s-%04x, "
-	       "cset %i, chan %i\n",
-	       ctrl.major_version, ctrl.minor_version,
-	       ctrl.triggername, ctrl.addr.devname, ctrl.addr.dev_id,
-	       ctrl.addr.cset, ctrl.addr.chan);
-	printf("Ctrl: alarms 0x%02x 0x%02x\n",
-	       ctrl.zio_alarms, ctrl.drv_alarms);
-	printf("Ctrl: seq %i, n %i, size %i, bits %i, "
-	       "flags %08x (%s)\n",
-	       ctrl.seq_num,
-	       ctrl.nsamples,
-	       ctrl.ssize,
-	       ctrl.nbits,
-	       ctrl.flags,
-	       ctrl.flags & ZIO_CONTROL_LITTLE_ENDIAN
-	       ? "little-endian" :
-	       ctrl.flags & ZIO_CONTROL_BIG_ENDIAN
-	       ? "big-endian" : "unknown-endian");
-	printf("Ctrl: stamp %lli.%09lli (%lli)\n",
-	       (long long)ctrl.tstamp.secs,
-	       (long long)ctrl.tstamp.ticks,
-	       (long long)ctrl.tstamp.bins);
-	if (opt_print_memaddr)
-		printf("Ctrl: mem_offset %08x\n", ctrl.mem_offset);
-	if (opt_print_attr)
-		print_attributes(&ctrl);
+	}
 
 	/* FIXME: some control information not being printed yet */
 	if (dfd < 0) {
@@ -253,18 +207,12 @@ int main(int argc, char **argv)
 		case 'a':
 			opt_print_attr = 1;
 			break;
-		case 'A':
-			opt_print_attr = 2;
-			break;
 		case 'c':
 			combined = 1;
 			break;
 		case 's':
 			combined = 1; /* sniff is a special combined case */
 			sniff = 1;
-			break;
-		case 'm':
-			opt_print_memaddr = 1;
 			break;
 		case 'n':
 			nblocks = strtoul(optarg, &rest, 0);

@@ -47,6 +47,16 @@ enum zio_object_type {
 #define ZIO_OBJ_NAME_LEN 12
 #define ZIO_OBJ_NAME_FULL_LEN (ZIO_OBJ_NAME_LEN * 2)
 
+/**
+ * ZIO know attributes type
+ */
+enum zio_control_attr_type {
+	ZIO_CTRL_ATTR_DEV_STD, /**< Device standard attribute*/
+	ZIO_CTRL_ATTR_DEV_EXT, /**< Device extended attribute*/
+	ZIO_CTRL_ATTR_TRG_STD, /**< Trigger standard attribute*/
+	ZIO_CTRL_ATTR_TRG_EXT, /**< Trigger extended attribute*/
+};
+
 /*
  * Maximum number of standard and extended attributes. These two values
  * _cannot_ be changed

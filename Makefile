@@ -15,7 +15,7 @@ ZIO_VERSION += -D__ZIO_PATCH_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f
 export GIT_VERSION
 export ZIO_VERSION
 
-all: modules tools
+all: modules tools lib
 
 modules:
 	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd)
@@ -28,9 +28,12 @@ coccicheck:
 	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd) coccicheck
 
 
-.PHONY: tools
+.PHONY: tools lib
 
-tools:
+lib:
+	$(MAKE) -C lib M=$(shell /bin/pwd)
+
+tools: lib
 	$(MAKE) -C tools M=$(shell /bin/pwd)
 
 # this make clean is ugly, I'm aware...
