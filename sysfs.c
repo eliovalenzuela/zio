@@ -1126,48 +1126,41 @@ static int __check_attr(struct attribute *attr,
 }
 
 
-/* create a set of zio attributes: the standard one and the extended one */
 static int zattr_set_create(struct zio_obj_head *head,
-		     const struct zio_sysfs_operations *s_op)
+			    const struct zio_sysfs_operations *s_op)
 {
-	int i, err, a_count = 0, n_attr;
+	struct attribute_group *sgroup = NULL, *egroup = NULL;
 	const struct attribute_group **groups;
-	struct attribute_group *group;
 	struct zio_attribute_set *zattr_set;
 	struct zio_attribute *zattr;
 	struct attribute *attr;
+	unsigned int a_count = 0, g_count = 0, i;
+	int err = -ENOMEM;
 
 	zattr_set = zio_get_from_obj(head, zattr_set);
 	if (!zattr_set)
-		return -EINVAL; /* message already printed */
+		return -ENOMEM; /* message already printed */
 
-	if (!(zattr_set->std_zattr && zattr_set->n_std_attr))
-		zattr_set->n_std_attr = 0;
-	if (!(zattr_set->ext_zattr && zattr_set->n_ext_attr))
-		zattr_set->n_ext_attr = 0;
-	n_attr = zattr_set->n_std_attr + zattr_set->n_ext_attr;
-	if (!n_attr)
-		goto out;
-
-
-	/* Allocate needed groups. dev->groups is null ended */
-	groups = kzalloc(sizeof(struct attribute_group *) * 2, GFP_KERNEL);
+	groups = kzalloc(sizeof(struct attribute_group *) * 3, GFP_KERNEL);
 	if (!groups)
 		return -ENOMEM;
-	group = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
-	if (!group) {
-	        err = -ENOMEM;
-		goto err_grp;
-	}
-	group->attrs = kzalloc(sizeof(struct attribute) * n_attr, GFP_KERNEL);
-	if (!group->attrs) {
-	        err = -ENOMEM;
-		goto err_attrs;
-	}
 
-
+	/* Create Standard Attributes */
 	if (!zattr_set->std_zattr || !zattr_set->n_std_attr)
-		goto ext; /* Continue with extended attributes */
+		goto extended; /* Continue with extended attributes */
+
+	/* Use dedicated group */
+	sgroup = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
+	if (!sgroup)
+		goto out_s_galloc;
+	sgroup->name = "standard";
+	sgroup->attrs = kzalloc(sizeof(struct attribute) *
+				zattr_set->n_std_attr,
+				GFP_KERNEL);
+	if (!sgroup->attrs)
+		goto out_s_aalloc;
+
+
 	/* Fill attribute group with standard attributes */
 	for (i = 0; i < zattr_set->n_std_attr; ++i) {
 		zattr = &zattr_set->std_zattr[i];
@@ -1178,7 +1171,7 @@ static int zattr_set_create(struct zio_obj_head *head,
 		switch (err) {
 		case 0:
 			/* valid attribute */
-			group->attrs[a_count++] = attr;
+			sgroup->attrs[a_count++] = attr;
 			if (i == ZIO_ATTR_VERSION) {
 				zattr->attr.show = zio_show_attr_version;
 			} else { /* All other attributes */
@@ -1196,20 +1189,34 @@ static int zattr_set_create(struct zio_obj_head *head,
 			return err;
 		}
 	}
-ext:
+	groups[g_count++] = sgroup;
+
+extended:
+	/* Create Extended Attributes */
 	if (!zattr_set->ext_zattr || !zattr_set->n_ext_attr)
-		goto out_assign; /* Continue to the assignment */
+		goto out; /* Continue to the assignment */
+
+	egroup = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
+	if (!egroup)
+		goto out_e_galloc;
+	egroup->attrs = kzalloc(sizeof(struct attribute) *
+				zattr_set->n_ext_attr,
+				GFP_KERNEL);
+	if (!egroup->attrs)
+		goto out_e_aalloc;
+	egroup->name = "extended";
+
 	/* Fill attribute group with extended attributes */
 	for (i = 0; i < zattr_set->n_ext_attr; ++i) {
 		zattr = &zattr_set->ext_zattr[i];
 		attr = &zattr->attr.attr;
 		err = __check_attr(attr, s_op);
 		if (err)
-		        goto err_ext;
+		        goto out_e_attr;
 		dev_vdbg(&head->dev, "%s(ext): %s %d %s\n", __func__,
 			head->name, i, attr->name);
 		/* valid attribute */
-		group->attrs[a_count++] = attr;
+		egroup->attrs[i] = attr;
 		zattr->attr.show = zattr_show;
 		zattr->attr.store = zattr_store;
 		zattr->s_op = s_op;
@@ -1218,20 +1225,28 @@ ext:
 		zattr->flags |= ZIO_ATTR_TYPE_EXT;
 	}
 
-out_assign:
-	groups[0] = group;
-	groups[1] = NULL;
-	head->dev.groups = groups;
+	groups[g_count++] = egroup;
 out:
+	head->dev.groups = groups;
+
 	return 0;
-err_ext:
-	kfree(group->attrs);
-err_attrs:
-	kfree(group);
-err_grp:
+
+out_e_attr:
+out_e_aalloc:
+	if (egroup)
+		kfree(egroup);
+out_e_galloc:
+	if (sgroup && sgroup->attrs)
+		kfree(sgroup->attrs);
+out_s_aalloc:
+	if (sgroup)
+		kfree(sgroup);
+out_s_galloc:
 	kfree(groups);
 	return err;
 }
+
+
 /* Remove an existent set of attributes */
 static void zattr_set_remove(struct zio_obj_head *head)
 {
