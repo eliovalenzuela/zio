@@ -244,9 +244,7 @@ static int max11040_zio_probe(struct zio_device *zdev)
 	zattr_set = &zdev->zattr_set;
 	max11040->zdev = zdev;
 
-	/* FIXME: autodetect number of channels */
 	printk("%s: n_chan = %i\n", __func__, zdev->cset->n_chan);
-	zdev->cset->n_chan = 8;
 
 	/* nothing special to do (maybe build spi tx command word?) */
 	return 0;
@@ -284,6 +282,9 @@ static int max11040_spi_probe(struct spi_device *spi)
 	max11040 = kzalloc(sizeof(struct max11040), GFP_KERNEL);
 	if (!max11040)
 		return -ENOMEM;
+
+	/* FIXME: autodetect number of channels */
+	max11040_ain_cset->n_chan = 4 + 4 * spi->chip_select; 
 
 	/* Configure SPI */
 	spi->bits_per_word = 16; /* FIXME.... 24? */
