@@ -268,7 +268,7 @@ static struct zio_driver max11040_zdrv = {
 	   with the last version */
 	.min_version = ZIO_VERSION(__ZIO_MAJOR_VERSION,
 				   __ZIO_MINOR_VERSION,
-				   __ZIO_PATCH_VERSION),
+				   0),
 };
 
 
