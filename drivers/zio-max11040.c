@@ -196,7 +196,7 @@ static struct zio_cset max11040_ain_cset[] = { /* 24bit, up to 32 channels */
 	{
 		.raw_io = max11040_input_cset,
 		.ssize = 3,
-		.n_chan = 32, /* FIXME: change at runtime */
+		.n_chan = 4, /* FIXME: change at runtime */
 		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
 			 ZIO_DIR_INPUT		/* is input */,
 	},
@@ -205,7 +205,7 @@ static struct zio_cset max11060_ain_cset[] = { /* 16bit, up to 32 channels */
 	{
 		.raw_io = max11040_input_cset,
 		.ssize = 2,
-		.n_chan = 32, /* FIXME: change at runtime */
+		.n_chan = 4, /* FIXME: change at runtime */
 		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
 			 ZIO_DIR_INPUT		/* is input */,
 	},
@@ -284,7 +284,7 @@ static int max11040_spi_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	/* FIXME: autodetect number of channels */
-	max11040_ain_cset->n_chan = 4 + 4 * spi->chip_select; 
+	//max11040_ain_cset->n_chan = 4 + 4 * spi->chip_select; 
 
 	/* Configure SPI */
 	spi->bits_per_word = 16; /* FIXME.... 24? */
