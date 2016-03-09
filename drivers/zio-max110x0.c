@@ -10,35 +10,35 @@
 #include <linux/zio-trigger.h>
 
 
-ZIO_PARAM_TRIGGER(max11040_trigger);
-ZIO_PARAM_BUFFER(max11040_buffer);
+ZIO_PARAM_TRIGGER(max110x0_trigger);
+ZIO_PARAM_BUFFER(max110x0_buffer);
 
-enum max11040_devices {
+enum max110x0_devices {
 	ID_MAX11040,
 	ID_MAX11060,
 };
 
-#define MAX11040_ATTR_FAKE_NAME	"attr-fake" /* to keep track of how it's used */
-#define MAX11040_ADDR_SHIFT	11
-#define MAX11040_PM_ADDR		0x0300
-#define MAX11040_PM_SHIFT		8
-#define MAX11040_VREF_ADDR	0x0400
-#define MAX11040_VREF_SHIFT	10
-#define MAX11040_SINDUAL_ADDR	0x1000
-#define MAX11040_SINDUAL_SHIFT	12
+#define MAX110X0_ATTR_FAKE_NAME "attr-fake" /* to keep track of how it's used */
+#define MAX110X0_ADDR_SHIFT 11
+#define MAX110X0_PM_ADDR  0x0300
+#define MAX110X0_PM_SHIFT  8
+#define MAX110X0_VREF_ADDR 0x0400
+#define MAX110X0_VREF_SHIFT 10
+#define MAX110X0_SINDUAL_ADDR 0x1000
+#define MAX110X0_SINDUAL_SHIFT 12
 
-struct max11040_context {
-	struct spi_message	message;
-	struct spi_transfer	transfer;
-	struct zio_cset		*cset;
-	unsigned int		chan_enable; /* number of enabled channel */
-	uint32_t		nsamples; /* number of samples */
+struct max110x0_context {
+	struct spi_message message;
+	struct spi_transfer transfer;
+	struct zio_cset *cset;
+	unsigned int chan_enable; /* number of enabled channel */
+	uint32_t nsamples; /* number of samples */
 };
 
-struct max11040 {
-	struct zio_device	*zdev;
-	enum max11040_devices	type;
-	struct spi_device	*spi;
+struct max110x0 {
+	struct zio_device *zdev;
+	enum max110x0_devices type;
+	struct spi_device *spi;
 	//uint16_t		cmd; -- FIXME
 };
 
@@ -54,38 +54,38 @@ static ZIO_ATTR_DEFINE_STD(ZIO_DEV, zattr_dev_max11060) = {
 
 /* Extended attributes for MAX110[46]0 -- fake attribute by now */
 static struct zio_attribute zattr_dev_ext_max110x0[] = {
-	ZIO_ATTR_EXT(MAX11040_ATTR_FAKE_NAME, ZIO_RW_PERM,
-		     43 /* id ==addr */, 0x0),
+	ZIO_ATTR_EXT(MAX110X0_ATTR_FAKE_NAME, ZIO_RW_PERM,
+		43 /* id ==addr */, 0x0),
 };
 
 /* backend for sysfs stores */
-static int max11040_conf_set(struct device *dev, struct zio_attribute *zattr,
-		uint32_t  usr_val)
+static int max110x0_conf_set(struct device *dev, struct zio_attribute *zattr,
+																													uint32_t usr_val)
 {
 	unsigned long mask = zattr->id;
-	struct max11040 *max11040;
+	struct max110x0 *max110x0;
 
-	max11040 = to_zio_dev(dev)->priv_d;
+	max110x0 = to_zio_dev(dev)->priv_d;
 	switch (mask) {
-	case 43:  /* fake, random, crap! */
+	case 43: /* fake, random, crap! */
 		printk("%s: writing fake attr: %i\n", __func__, usr_val);
 		break;
 	default:
 		printk("%s: writing wrong attr: %li = %i\n", __func__,
-		       mask, usr_val);
+			mask, usr_val);
 		break;
 	}
 	return 0;
 }
 
-static const struct zio_sysfs_operations max11040_s_op = {
-	.conf_set = max11040_conf_set,
+static const struct zio_sysfs_operations max110x0_s_op = {
+	.conf_set = max110x0_conf_set,
 };
 
-/* read from MAX11040 and return the pointer to the data */
-static void max11040_complete(void *cont)
+/* read from MAX110[46]0 and return the pointer to the data */
+static void max110x0_complete(void *cont)
 {
-	struct max11040_context *context = cont;
+	struct max110x0_context *context = cont;
 	struct zio_channel *chan;
 	struct zio_cset *cset;
 	uint16_t *data, *buf;
@@ -114,9 +114,8 @@ static void max11040_complete(void *cont)
 }
 
 /* local helper: alloc and fill TX buffer with SPI data for ADC device */
-static inline uint16_t *max11040_build_tx(struct max11040 *max11040,
-					     struct max11040_context *context,
-					     uint32_t size)
+static inline uint16_t *max110x0_build_tx(struct max110x0 *max110x0,
+	struct max110x0_context *context, uint32_t size)
 {
 	//struct zio_channel *chan;
 	uint16_t *tx_buf;
@@ -131,19 +130,19 @@ static inline uint16_t *max11040_build_tx(struct max11040 *max11040,
 	return tx_buf;
 }
 
-static int max11040_input_cset(struct zio_cset *cset)
+static int max110x0_input_cset(struct zio_cset *cset)
 {
 	int err = -EBUSY;
-	struct max11040 *max11040;
-	struct max11040_context *context;
+	struct max110x0 *max110x0;
+	struct max110x0_context *context;
 	uint32_t size, nsamples;
 
 	/* alloc context */
-	context = kzalloc(sizeof(struct max11040_context), GFP_ATOMIC);
+	context = kzalloc(sizeof(struct max110x0_context), GFP_ATOMIC);
 	if (!context)
 		return -ENOMEM;
 
-	max11040 = cset->zdev->priv_d;
+	max110x0 = cset->zdev->priv_d;
 	context->chan_enable = zio_get_n_chan_enabled(cset);
 
 	/* prepare SPI message and transfer */
@@ -157,7 +156,7 @@ static int max11040_input_cset(struct zio_cset *cset)
 	size = (context->chan_enable * nsamples * cset->ssize);
 
 	spi_message_init(&context->message);
-	context->message.complete = max11040_complete;
+	context->message.complete = max110x0_complete;
 	context->message.context = context;
 	context->cset = cset;
 	context->nsamples = nsamples;
@@ -166,11 +165,11 @@ static int max11040_input_cset(struct zio_cset *cset)
 	context->transfer.rx_buf = kmalloc(size, GFP_ATOMIC);
 	if (!context->transfer.rx_buf) {
 		err = -ENOMEM;
-		goto err_alloc_rx;
+			goto err_alloc_rx;
 	}
 
 	/* allocate configure tx buffer*/
-	context->transfer.tx_buf = max11040_build_tx(max11040, context, size);
+	context->transfer.tx_buf = max110x0_build_tx(max110x0, context, size);
 	if (IS_ERR(context->transfer.tx_buf)) {
 		err = PTR_ERR(context->transfer.tx_buf);
 		goto err_alloc_tx;
@@ -179,7 +178,7 @@ static int max11040_input_cset(struct zio_cset *cset)
 	spi_message_add_tail(&context->transfer, &context->message);
 
 	/* start acquisition */
-	err = spi_async_locked(max11040->spi, &context->message);
+	err = spi_async_locked(max110x0->spi, &context->message);
 	if (!err)
 		return -EAGAIN; /* success with callback */
 
@@ -194,24 +193,24 @@ err_alloc_rx:
 /* channel sets available */
 static struct zio_cset max11040_ain_cset[] = { /* 24bit, up to 32 channels */
 	{
-		.raw_io = max11040_input_cset,
+		.raw_io = max110x0_input_cset,
 		.ssize = 3,
 		.n_chan = 4, /* FIXME: change at runtime */
-		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
-			 ZIO_DIR_INPUT		/* is input */,
+		.flags = ZIO_CSET_TYPE_ANALOG | /* is analog */
+			ZIO_DIR_INPUT /* is input */,
 	},
 };
 static struct zio_cset max11060_ain_cset[] = { /* 16bit, up to 32 channels */
 	{
-		.raw_io = max11040_input_cset,
+		.raw_io = max110x0_input_cset,
 		.ssize = 2,
 		.n_chan = 4, /* FIXME: change at runtime */
-		.flags = ZIO_CSET_TYPE_ANALOG |	/* is analog */
-			 ZIO_DIR_INPUT		/* is input */,
+		.flags = ZIO_CSET_TYPE_ANALOG | /* is analog */
+			ZIO_DIR_INPUT /* is input */,
 	},
 };
 
-static struct zio_device max11040_tmpl[] = {
+static struct zio_device max110x0_tmpl[] = {
 	[ID_MAX11040] = {
 		.owner = THIS_MODULE,
 		.flags = 0,
@@ -234,15 +233,15 @@ static struct zio_device max11040_tmpl[] = {
 	},
 };
 
-static int max11040_zio_probe(struct zio_device *zdev)
+static int max110x0_zio_probe(struct zio_device *zdev)
 {
 	struct zio_attribute_set *zattr_set;
-	struct max11040 *max11040;
+	struct max110x0 *max110x0;
 
 	pr_info("%s:%d\n", __func__, __LINE__);
-	max11040 = zdev->priv_d;
+	max110x0 = zdev->priv_d;
 	zattr_set = &zdev->zattr_set;
-	max11040->zdev = zdev;
+	max110x0->zdev = zdev;
 
 	printk("%s: n_chan = %i\n", __func__, zdev->cset->n_chan);
 
@@ -250,18 +249,18 @@ static int max11040_zio_probe(struct zio_device *zdev)
 	return 0;
 }
 
-static const struct zio_device_id max11040_table[] = {
-	{"max11040", &max11040_tmpl[ID_MAX11040]},
-	{"max11060", &max11040_tmpl[ID_MAX11060]},
+static const struct zio_device_id max110x0_table[] = {
+	{"max11040", &max110x0_tmpl[ID_MAX11040]},
+	{"max11060", &max110x0_tmpl[ID_MAX11060]},
 	{},
 };
-static struct zio_driver max11040_zdrv = {
+static struct zio_driver max110x0_zdrv = {
 	.driver = {
-		.name = "zio-max11040",
+		.name = "zio-max110x0",
 		.owner = THIS_MODULE,
 	},
-	.id_table = max11040_table,
-	.probe = max11040_zio_probe,
+	.id_table = max110x0_table,
+	.probe = max110x0_zio_probe,
 	/* All drivers compiled within the ZIO projects are compatibile
 	   with the last version */
 	.min_version = ZIO_VERSION(1, 1, 0),
@@ -269,20 +268,20 @@ static struct zio_driver max11040_zdrv = {
 
 
 /* We create a ZIO device when our SPI driver gets access to a physical dev */
-static int max11040_spi_probe(struct spi_device *spi)
+static int max110x0_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *spi_id;
 	struct zio_device *zdev;
-	struct max11040 *max11040;
+	struct max110x0 *max110x0;
 	int err = 0;
 	uint32_t dev_id;
 
-	max11040 = kzalloc(sizeof(struct max11040), GFP_KERNEL);
-	if (!max11040)
+	max110x0 = kzalloc(sizeof(struct max110x0), GFP_KERNEL);
+	if (!max110x0)
 		return -ENOMEM;
 
 	/* FIXME: autodetect number of channels */
-	//max11040_ain_cset->n_chan = 4 + 4 * spi->chip_select; 
+	//max11040_ain_cset->n_chan = 4 + 4 * spi->chip_select;
 
 	/* Configure SPI */
 	spi->bits_per_word = 16; /* FIXME.... 24? */
@@ -293,13 +292,13 @@ static int max11040_spi_probe(struct spi_device *spi)
 	spi_id = spi_get_device_id(spi);
 	if (!spi_id)
 		goto errout;
-	max11040->spi = spi;
-	max11040->type = spi_id->driver_data; /* FIXME: check this */
-	printk("%s: type: %i\n", __func__, max11040->type);
+	max110x0->spi = spi;
+	max110x0->type = spi_id->driver_data; /* FIXME: check this */
+	printk("%s: type: %i\n", __func__, max110x0->type);
 
 	/* zdev here is the generic device */
 	zdev = zio_allocate_device();
-	zdev->priv_d = max11040;
+	zdev->priv_d = max110x0;
 	zdev->owner = THIS_MODULE;
 	spi_set_drvdata(spi, zdev);
 
@@ -309,64 +308,64 @@ static int max11040_spi_probe(struct spi_device *spi)
 	err = zio_register_device(zdev, spi_id->name, dev_id);
 errout:
 	if (err)
-		kfree(max11040);
+		kfree(max110x0);
 	return err;
 }
 
-static int max11040_spi_remove(struct spi_device *spi)
+static int max110x0_spi_remove(struct spi_device *spi)
 {
 	struct zio_device *zdev;
-	struct max11040 *max11040;
+	struct max110x0 *max110x0;
 
 	/* zdev here is the generic device */
 	zdev = spi_get_drvdata(spi);
-	max11040 = zdev->priv_d;
+	max110x0 = zdev->priv_d;
 	zio_unregister_device(zdev);
-	kfree(max11040);
+	kfree(max110x0);
 	zio_free_device(zdev);
 	return 0;
 }
 
-static const struct spi_device_id max11040_id[] = {
+static const struct spi_device_id max110x0_id[] = {
 	{"max11040", ID_MAX11040},
 	{"max11060", ID_MAX11060},
 	{}
 };
 
-static struct spi_driver max11040_driver = {
+static struct spi_driver max110x0_driver = {
 	.driver = {
-		.name	= "max110x0",
-		.bus	= &spi_bus_type,
-		.owner	= THIS_MODULE,
+		.name = "max110x0",
+		.bus = &spi_bus_type,
+		.owner = THIS_MODULE,
 	},
-	.id_table	= max11040_id,
-	.probe		= max11040_spi_probe,
-	.remove		= max11040_spi_remove,
+	.id_table = max110x0_id,
+	.probe  = max110x0_spi_probe,
+	.remove  = max110x0_spi_remove,
 };
 
-static int __init max11040_init(void)
+static int __init max110x0_init(void)
 {
 	int err, i;
 
-	for (i = 0; i < ARRAY_SIZE(max11040_tmpl); ++i) {
-		if (max11040_trigger)
-			max11040_tmpl[i].preferred_trigger = max11040_trigger;
-		if (max11040_buffer)
-			max11040_tmpl[i].preferred_buffer = max11040_buffer;
+	for (i = 0; i < ARRAY_SIZE(max110x0_tmpl); ++i) {
+		if (max110x0_trigger)
+			max110x0_tmpl[i].preferred_trigger = max110x0_trigger;
+		if (max110x0_buffer)
+			max110x0_tmpl[i].preferred_buffer = max110x0_buffer;
 	}
-	err = zio_register_driver(&max11040_zdrv);
+	err = zio_register_driver(&max110x0_zdrv);
 	if (err)
 		return err;
-	return spi_register_driver(&max11040_driver);
+	return spi_register_driver(&max110x0_driver);
 }
-static void __exit max11040_exit(void)
+static void __exit max110x0_exit(void)
 {
-	driver_unregister(&max11040_driver.driver);
-	zio_unregister_driver(&max11040_zdrv);
+	driver_unregister(&max110x0_driver.driver);
+	zio_unregister_driver(&max110x0_zdrv);
 }
 
-module_init(max11040_init);
-module_exit(max11040_exit);
+module_init(max110x0_init);
+module_exit(max110x0_exit);
 
 MODULE_VERSION(GIT_VERSION); /* Defined in local Makefile */
 MODULE_AUTHOR("Davide Silvestri");
