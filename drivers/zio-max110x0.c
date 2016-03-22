@@ -31,7 +31,7 @@ struct max110x0_context {
 	struct spi_message message;
 	struct spi_transfer transfer;
 	struct zio_cset *cset;
-	unsigned int chan_enable; /* number of enabled channel */
+	unsigned int chans_enabled; /* number of enabled channels */
 	uint32_t nsamples; /* number of samples */
 };
 
@@ -60,7 +60,7 @@ static struct zio_attribute zattr_dev_ext_max110x0[] = {
 
 /* backend for sysfs stores */
 static int max110x0_conf_set(struct device *dev, struct zio_attribute *zattr,
-																													uint32_t usr_val)
+				uint32_t usr_val)
 {
 	unsigned long mask = zattr->id;
 	struct max110x0 *max110x0;
@@ -88,22 +88,22 @@ static void max110x0_complete(void *cont)
 	struct max110x0_context *context = cont;
 	struct zio_channel *chan;
 	struct zio_cset *cset;
-	uint16_t *data, *buf;
+	uint8_t *data;
+	uint32_t *buf, tmp;
 	int i, j = 0;
 
 	cset = context->cset;
-	data = (uint16_t *) context->transfer.rx_buf;
-	if (0) {
-		/* FIXME: if, by chance, first sample is not good, dicard it */
-		data += 1;
-	}
+	data = (uint8_t *) context->transfer.rx_buf;
+	data += 1;  // skip the command byte
+
 	/* demux data */
 	chan_for_each(chan, cset) {
 		if (!chan->active_block)
 			continue;
-		buf = (uint16_t *)chan->active_block->data;
-		for (i = 0; i < context->nsamples; ++i)
-			buf[i] = data[i * context->chan_enable + j];
+		buf = (uint32_t *)chan->active_block->data;
+		memset(buf, 0, context->nsamples);
+		tmp = data[0] << 16 | data[1] << 8 | data[2];
+		buf[0] = (data[0] > 127) ? 0xff : 0x00 | tmp;
 		++j;
 	}
 	zio_trigger_data_done(cset);
@@ -113,28 +113,12 @@ static void max110x0_complete(void *cont)
 	kfree(context);
 }
 
-/* local helper: alloc and fill TX buffer with SPI data for ADC device */
-static inline uint16_t *max110x0_build_tx(struct max110x0 *max110x0,
-	struct max110x0_context *context, uint32_t size)
-{
-	//struct zio_channel *chan;
-	uint16_t *tx_buf;
-
-	/* configure transfer buffer*/
-	tx_buf = kmalloc(size, GFP_ATOMIC);
-	if (!tx_buf)
-		return ERR_PTR(-ENOMEM);
-
-	/* FIXME: fill TX buffer with MAX commands */
-
-	return tx_buf;
-}
-
 static int max110x0_input_cset(struct zio_cset *cset)
 {
 	int err = -EBUSY;
 	struct max110x0 *max110x0;
 	struct max110x0_context *context;
+	uint8_t *tx_buf;
 	uint32_t size, nsamples;
 
 	/* alloc context */
@@ -143,17 +127,14 @@ static int max110x0_input_cset(struct zio_cset *cset)
 		return -ENOMEM;
 
 	max110x0 = cset->zdev->priv_d;
-	context->chan_enable = zio_get_n_chan_enabled(cset);
+	context->chans_enabled = zio_get_n_chan_enabled(cset);
 
 	/* prepare SPI message and transfer */
 	nsamples = cset->chan->current_ctrl->nsamples;
 
-	/*
-	 * Calculate buffer size (FIXME)
-	 * nsamples + 1: we need one extra fake sample because SPI answer is
-	 *               shifted by 1
-	 */
-	size = (context->chan_enable * nsamples * cset->ssize);
+	 /* FIXME: 1 byte of command + 96 (24*4) bit data register
+	 for every max110x0 in the daisy chain */
+	size = (1 + (96 / 8 * 1));
 
 	spi_message_init(&context->message);
 	context->message.complete = max110x0_complete;
@@ -162,18 +143,22 @@ static int max110x0_input_cset(struct zio_cset *cset)
 	context->nsamples = nsamples;
 	context->transfer.len = size;
 
+	/* allocate the rx buffer */
 	context->transfer.rx_buf = kmalloc(size, GFP_ATOMIC);
 	if (!context->transfer.rx_buf) {
 		err = -ENOMEM;
-			goto err_alloc_rx;
+		goto err_alloc_rx;
 	}
 
-	/* allocate configure tx buffer*/
-	context->transfer.tx_buf = max110x0_build_tx(max110x0, context, size);
-	if (IS_ERR(context->transfer.tx_buf)) {
-		err = PTR_ERR(context->transfer.tx_buf);
+	/* allocate the tx buffer */
+	tx_buf = kzalloc(size, GFP_ATOMIC);
+	context->transfer.tx_buf = tx_buf;
+	if (!tx_buf) {
+		err = -ENOMEM;
 		goto err_alloc_tx;
 	}
+	// set the data register read command
+	tx_buf[0] = 0xf0;
 
 	spi_message_add_tail(&context->transfer, &context->message);
 
@@ -194,7 +179,7 @@ err_alloc_rx:
 static struct zio_cset max11040_ain_cset[] = { /* 24bit, up to 32 channels */
 	{
 		.raw_io = max110x0_input_cset,
-		.ssize = 3,
+		.ssize = 4,  /* FIXME: should be 3, but then should be uint24_t? */
 		.n_chan = 4, /* FIXME: change at runtime */
 		.flags = ZIO_CSET_TYPE_ANALOG | /* is analog */
 			ZIO_DIR_INPUT /* is input */,
@@ -284,7 +269,9 @@ static int max110x0_spi_probe(struct spi_device *spi)
 	//max11040_ain_cset->n_chan = 4 + 4 * spi->chip_select;
 
 	/* Configure SPI */
-	spi->bits_per_word = 16; /* FIXME.... 24? */
+	/* FIXME: default to 8 (as ctrl reg)
+	   NOTE spi_transfer.bits_per_word can override this for each transfer */
+	// spi->bits_per_word = 16;
 	err = spi_setup(spi);
 	if (err)
 		goto errout;
@@ -302,7 +289,7 @@ static int max110x0_spi_probe(struct spi_device *spi)
 	zdev->owner = THIS_MODULE;
 	spi_set_drvdata(spi, zdev);
 
-	dev_id = spi->chip_select | (spi->master->bus_num << 8);
+	dev_id = spi->chip_select | (32766 - spi->master->bus_num);
 
 	/* Register a ZIO device */
 	err = zio_register_device(zdev, spi_id->name, dev_id);
@@ -318,6 +305,7 @@ static int max110x0_spi_remove(struct spi_device *spi)
 	struct max110x0 *max110x0;
 
 	/* zdev here is the generic device */
+	/* FIXME: but SPI? May I kfree all even with an active command */
 	zdev = spi_get_drvdata(spi);
 	max110x0 = zdev->priv_d;
 	zio_unregister_device(zdev);
@@ -346,7 +334,6 @@ static struct spi_driver max110x0_driver = {
 static int __init max110x0_init(void)
 {
 	int err, i;
-
 	for (i = 0; i < ARRAY_SIZE(max110x0_tmpl); ++i) {
 		if (max110x0_trigger)
 			max110x0_tmpl[i].preferred_trigger = max110x0_trigger;
@@ -356,8 +343,10 @@ static int __init max110x0_init(void)
 	err = zio_register_driver(&max110x0_zdrv);
 	if (err)
 		return err;
+	// FIXME: check for errors? And unregister the zio_device in case
 	return spi_register_driver(&max110x0_driver);
 }
+
 static void __exit max110x0_exit(void)
 {
 	driver_unregister(&max110x0_driver.driver);

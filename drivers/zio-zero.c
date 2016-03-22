@@ -175,7 +175,7 @@ static struct zio_cset zzero_cset[] = {
 	{
 		ZIO_SET_OBJ_NAME("zero-input-32"),
 		.raw_io =	zzero_input_32,
-		.n_chan =	1,
+		.n_chan =	8,
 		.ssize =	4,
 		.flags =	ZIO_DIR_INPUT | ZIO_CSET_TYPE_ANALOG,
 		.zattr_set = {
