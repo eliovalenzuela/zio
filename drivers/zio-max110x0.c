@@ -4,6 +4,8 @@
 #include <linux/init.h>
 #include <linux/spi/spi.h>
 #include <linux/fs.h>
+#include <linux/interrupt.h>
+#include <linux/gpio.h>
 #include <linux/zio.h>
 #include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>
@@ -126,6 +128,16 @@ out:
 	kfree(context);
 }
 
+static irqreturn_t max110x0_gpio_irq(int irq, void *arg)
+{
+	struct zio_cset *cset = arg;
+
+	printk("%s: %p\n", __func__, cset);
+	/* FIXME: fire transfer */
+	return IRQ_NONE;
+}
+
+
 static int max110x0_input_cset(struct zio_cset *cset)
 {
 	int err = -EBUSY;
@@ -171,12 +183,24 @@ static int max110x0_input_cset(struct zio_cset *cset)
 		err = -ENOMEM;
 		goto err_alloc_tx;
 	}
-	// set the data register read command
-	tx_buf[0] = 0xf0;
+
+	cset->priv_d = context;
+
+	/* register GPIO interrupt -- pioA3 */
+	if (request_irq(gpio_to_irq(3), max110x0_gpio_irq, 
+			IRQF_TRIGGER_FALLING,
+			"max110x0-sync", cset) < 0)
+		printk("no irq: merda\n");
+
+	// configure the data rate control register
+	tx_buf[0] = 0x50;
+	tx_buf[1] = 0x27;
+	tx_buf[2] = 0xff;
+	context->transfer.len = 3;
 
 	spi_message_add_tail(&context->transfer, &context->message);
 
-	/* start acquisition */
+	/* start xter to configure data rate */
 	err = spi_async_locked(context->spi, &context->message);
 	if (!err)
 		return -EAGAIN; /* success with callback */
