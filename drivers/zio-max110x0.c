@@ -8,6 +8,7 @@
 #include <linux/zio-sysfs.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
+#include <asm/unaligned.h>
 
 
 ZIO_PARAM_TRIGGER(max110x0_trigger);
@@ -31,8 +32,9 @@ struct max110x0_context {
 	struct spi_message message;
 	struct spi_transfer transfer;
 	struct zio_cset *cset;
+	struct spi_device *spi;
 	unsigned int chans_enabled; /* number of enabled channels */
-	uint32_t nsamples; /* number of samples */
+	uint32_t current_sample, nsamples;
 };
 
 struct max110x0 {
@@ -89,8 +91,8 @@ static void max110x0_complete(void *cont)
 	struct zio_channel *chan;
 	struct zio_cset *cset;
 	uint8_t *data;
-	uint32_t *buf, tmp;
-	int i, j = 0;
+	int32_t *buf, tmp;
+	int err;
 
 	cset = context->cset;
 	data = (uint8_t *) context->transfer.rx_buf;
@@ -100,12 +102,23 @@ static void max110x0_complete(void *cont)
 	chan_for_each(chan, cset) {
 		if (!chan->active_block)
 			continue;
-		buf = (uint32_t *)chan->active_block->data;
-		memset(buf, 0, context->nsamples);
-		tmp = data[0] << 16 | data[1] << 8 | data[2];
-		buf[0] = (data[0] > 127) ? 0xff : 0x00 | tmp;
-		++j;
+		buf = chan->active_block->data;
+
+		/* samples are 24-bit wide, big-endian: read unaligned */
+		tmp = get_unaligned_be32(data);
+		buf[context->current_sample] = tmp >> 8;
+		data += 3;
 	}
+	if (++context->current_sample < context->nsamples) {
+		err = spi_async_locked(context->spi, &context->message);
+		if (err) {
+			printk("merda\n"); /* FIXME: raise alarm */
+			goto out;
+		}
+		return;
+	}
+out:
+	/* The block is over */
 	zio_trigger_data_done(cset);
 	/* free context */
 	kfree(context->transfer.tx_buf);
@@ -140,6 +153,7 @@ static int max110x0_input_cset(struct zio_cset *cset)
 	context->message.complete = max110x0_complete;
 	context->message.context = context;
 	context->cset = cset;
+	context->spi = max110x0->spi;
 	context->nsamples = nsamples;
 	context->transfer.len = size;
 
@@ -163,7 +177,7 @@ static int max110x0_input_cset(struct zio_cset *cset)
 	spi_message_add_tail(&context->transfer, &context->message);
 
 	/* start acquisition */
-	err = spi_async_locked(max110x0->spi, &context->message);
+	err = spi_async_locked(context->spi, &context->message);
 	if (!err)
 		return -EAGAIN; /* success with callback */
 
