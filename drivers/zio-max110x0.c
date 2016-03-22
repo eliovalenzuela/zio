@@ -31,8 +31,8 @@ enum max110x0_devices {
 #define MAX110X0_SINDUAL_SHIFT 12
 
 struct max110x0_context {
-	struct spi_message message;
-	struct spi_transfer transfer;
+	struct spi_message data_msg, rate_msg;
+	struct spi_transfer data_xfer, rate_xfer;
 	struct zio_cset *cset;
 	struct spi_device *spi;
 	unsigned int chans_enabled; /* number of enabled channels */
@@ -94,10 +94,9 @@ static void max110x0_complete(void *cont)
 	struct zio_cset *cset;
 	uint8_t *data;
 	int32_t *buf, tmp;
-	int err;
 
 	cset = context->cset;
-	data = (uint8_t *) context->transfer.rx_buf;
+	data = (uint8_t *) context->data_xfer.rx_buf;
 	data += 1;  // skip the command byte
 
 	/* demux data */
@@ -111,30 +110,32 @@ static void max110x0_complete(void *cont)
 		buf[context->current_sample] = tmp >> 8;
 		data += 3;
 	}
-	if (++context->current_sample < context->nsamples) {
-		err = spi_async_locked(context->spi, &context->message);
-		if (err) {
-			printk("merda\n"); /* FIXME: raise alarm */
-			goto out;
-		}
-		return;
-	}
-out:
+	if (++context->current_sample < context->nsamples)
+		return; /* gpio IRQ will fire next xfer */
+
 	/* The block is over */
+	free_irq(gpio_to_irq(3), cset);
 	zio_trigger_data_done(cset);
 	/* free context */
-	kfree(context->transfer.tx_buf);
-	kfree(context->transfer.rx_buf);
+	kfree(context->data_xfer.tx_buf);
+	kfree(context->data_xfer.rx_buf);
+	kfree(context->rate_xfer.tx_buf);
+	kfree(context->rate_xfer.rx_buf);
 	kfree(context);
 }
 
 static irqreturn_t max110x0_gpio_irq(int irq, void *arg)
 {
 	struct zio_cset *cset = arg;
+	struct max110x0_context *context = cset->priv_d;
+	int err;
 
-	printk("%s: %p\n", __func__, cset);
-	/* FIXME: fire transfer */
-	return IRQ_NONE;
+	/* One data item is ready: fire SPI to collect it */
+	err = spi_async_locked(context->spi, &context->data_msg);
+	if (err)
+		printk("merda %s\n", __func__);
+
+	return IRQ_HANDLED;
 }
 
 
@@ -143,7 +144,7 @@ static int max110x0_input_cset(struct zio_cset *cset)
 	int err = -EBUSY;
 	struct max110x0 *max110x0;
 	struct max110x0_context *context;
-	uint8_t *tx_buf;
+	uint8_t *tx_buf, *rx_buf;
 	uint32_t size, nsamples;
 
 	/* alloc context */
@@ -161,30 +162,53 @@ static int max110x0_input_cset(struct zio_cset *cset)
 	 for every max110x0 in the daisy chain */
 	size = (1 + (96 / 8 * 1));
 
-	spi_message_init(&context->message);
-	context->message.complete = max110x0_complete;
-	context->message.context = context;
+	/* our information */
 	context->cset = cset;
 	context->spi = max110x0->spi;
 	context->nsamples = nsamples;
-	context->transfer.len = size;
-
-	/* allocate the rx buffer */
-	context->transfer.rx_buf = kmalloc(size, GFP_ATOMIC);
-	if (!context->transfer.rx_buf) {
-		err = -ENOMEM;
-		goto err_alloc_rx;
-	}
-
-	/* allocate the tx buffer */
-	tx_buf = kzalloc(size, GFP_ATOMIC);
-	context->transfer.tx_buf = tx_buf;
-	if (!tx_buf) {
-		err = -ENOMEM;
-		goto err_alloc_tx;
-	}
-
 	cset->priv_d = context;
+
+	/* prepare data message and buffers */
+	spi_message_init(&context->data_msg);
+	context->data_msg.complete = max110x0_complete;
+	context->data_msg.context = context;
+	context->data_xfer.len = size;
+
+	rx_buf = kmalloc(size, GFP_ATOMIC);
+	tx_buf = kzalloc(size, GFP_ATOMIC);
+
+	context->data_xfer.rx_buf = rx_buf;
+	context->data_xfer.tx_buf = tx_buf;
+
+	if (!tx_buf || !rx_buf) {
+		err = -ENOMEM;
+		goto err_alloc_buf;
+	}
+	tx_buf[0] = 0xf0;
+
+	spi_message_add_tail(&context->data_xfer, &context->data_msg);
+
+	/* prepare data-rate-setup message and buffers */
+	spi_message_init(&context->rate_msg);
+	context->rate_msg.complete = NULL;
+	context->rate_msg.context = context;
+	context->rate_xfer.len = 3;
+
+	rx_buf = kmalloc(3, GFP_ATOMIC);
+	tx_buf = kzalloc(3, GFP_ATOMIC);
+
+	context->rate_xfer.rx_buf = rx_buf;
+	context->rate_xfer.tx_buf = tx_buf;
+
+	if (!tx_buf || !rx_buf) {
+		err = -ENOMEM;
+		goto err_alloc_buf;
+	}
+	tx_buf[0] = 0x50;
+	tx_buf[1] = 0x27; /* slowest possible rate (FIXME) */
+	tx_buf[2] = 0xff;
+
+	spi_message_add_tail(&context->rate_xfer, &context->rate_msg);
 
 	/* register GPIO interrupt -- pioA3 */
 	if (request_irq(gpio_to_irq(3), max110x0_gpio_irq, 
@@ -192,24 +216,17 @@ static int max110x0_input_cset(struct zio_cset *cset)
 			"max110x0-sync", cset) < 0)
 		printk("no irq: merda\n");
 
-	// configure the data rate control register
-	tx_buf[0] = 0x50;
-	tx_buf[1] = 0x27;
-	tx_buf[2] = 0xff;
-	context->transfer.len = 3;
-
-	spi_message_add_tail(&context->transfer, &context->message);
 
 	/* start xter to configure data rate */
-	err = spi_async_locked(context->spi, &context->message);
+	err = spi_async_locked(context->spi, &context->rate_msg);
 	if (!err)
 		return -EAGAIN; /* success with callback */
 
-	kfree(context->transfer.tx_buf);
-err_alloc_tx:
-	kfree(context->transfer.rx_buf);
-err_alloc_rx:
-	kfree(context);
+err_alloc_buf:
+	kfree(context->rate_xfer.tx_buf);
+	kfree(context->rate_xfer.rx_buf);
+	kfree(context->data_xfer.tx_buf);
+	kfree(context->data_xfer.rx_buf);
 	return err;
 }
 
