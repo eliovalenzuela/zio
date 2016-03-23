@@ -96,6 +96,11 @@ static void max110x0_complete(void *cont)
 	int32_t *buf, tmp;
 
 	cset = context->cset;
+	if (cset->priv_d != context) {
+		printk("%s: late complete (%p != %p): ignore it\n",
+		       __func__, cset->priv_d, context);
+		return;
+	}
 	data = (uint8_t *) context->data_xfer.rx_buf;
 	data += 1;  // skip the command byte
 
@@ -115,6 +120,7 @@ static void max110x0_complete(void *cont)
 
 	/* The block is over */
 	free_irq(gpio_to_irq(3), cset);
+	cset->priv_d = NULL;
 	zio_trigger_data_done(cset);
 	/* free context */
 	kfree(context->data_xfer.tx_buf);
@@ -129,6 +135,9 @@ static irqreturn_t max110x0_gpio_irq(int irq, void *arg)
 	struct zio_cset *cset = arg;
 	struct max110x0_context *context = cset->priv_d;
 	int err;
+
+	if (!context)
+		return IRQ_NONE;
 
 	/* One data item is ready: fire SPI to collect it */
 	err = spi_async_locked(context->spi, &context->data_msg);
