@@ -142,19 +142,20 @@ static void max110x0_complete(void *cont)
 	if (++cxt->cnt < cset->ti->nsamples)
 		return; /* gpio IRQ will fire next xfer */
 
-	/* The block is over */
-	zio_trigger_data_done(cset);
 	/* reset the counter */
 	cxt->cnt = 0;
+	/* The block is over */
+	zio_trigger_data_done(cset);
 }
 
 static irqreturn_t max110x0_gpio_irq(int irq, void *arg)
 {
 	struct zio_cset *cset = arg;
 	struct max110x0_context *cxt = cset->priv_d;
+	int err;
 
-	if (likely(cxt))
-		spi_async_locked(cxt->spi, &cxt->msg);
+	err = spi_async_locked(cxt->spi, &cxt->msg);
+	// FIXME: what should i do with err?
 
 	return IRQ_HANDLED;
 }
@@ -162,9 +163,6 @@ static irqreturn_t max110x0_gpio_irq(int irq, void *arg)
 
 static int max110x0_raw_io(struct zio_cset *cset)
 {
-	/* We cannot be armed if there's no block. Wait for next push */
-	/*if (!cset->chan->active_block)
-		return -EIO;*/
 	return -EAGAIN;
 }
 
@@ -172,7 +170,7 @@ static int max110x0_raw_io(struct zio_cset *cset)
 static struct zio_cset max11040_ain_cset[] = { /* 24bit, up to 32 channels */
 	{
 		.raw_io = max110x0_raw_io,
-		.ssize = 4,  /* FIXME: should be 3, but then should be uint24_t? */
+		.ssize = 4,
 		.n_chan = 4, /* FIXME: change at runtime */
 		.flags = ZIO_CSET_TYPE_ANALOG | /* is analog */
 			ZIO_DIR_INPUT | /* is input */
@@ -275,14 +273,12 @@ static int max110x0_setup(struct zio_device *zdev) {
 	/* FIXME: max110x0_context for conf and data-rate messages is too much.
 	spi_message(s) and spi_transfer(s) are enough */
 
-	printk("write conf\n");
 	ndevice = cset->n_chan >> 2; // each device has 4 channels
 	err = max110x0_write_conf(max110x0->spi, MAX110X0_EN24BIT, ndevice);
 	if (err) {
 		printk("error writing conf message");
 		goto errout;
 	}
-	printk("conf writed\n");
 
 	/* alloc context for the read data register command */
 	data_cxt = kzalloc(sizeof(struct max110x0_context), GFP_ATOMIC);
@@ -319,9 +315,8 @@ static int max110x0_setup(struct zio_device *zdev) {
 
 	spi_message_add_tail(&data_cxt->xfer, &data_cxt->msg);
 
-	printk("register irq\n");
 	/* register GPIO interrupt to handle data transfer */
-	// FIXME: pioA1 for spi1, pioA3 for spi2. How to use a module param?
+	// FIXME: pioA1 for spi1, pioA3 for spi2. Module param?
 	if (request_irq(gpio_to_irq(max110x0_sync_gpio(zdev)),
 			max110x0_gpio_irq, IRQF_TRIGGER_FALLING,
 	 		dev_name(&zdev->head.dev), cset) < 0) {
@@ -330,13 +325,11 @@ static int max110x0_setup(struct zio_device *zdev) {
 		goto free_data_cxt;
 	}
 
-	printk("write data-rate\n");
 	/* configure data rate and start fire data transfer by the IRQ handler */
-	err = max110x0_write_datarate(max110x0->spi, MAX110X0_1KSPS);
+	err = max110x0_write_datarate(max110x0->spi, MAX110X0_250SPS);
 	if (!err)
 		return 0;
 
-	printk("error writing datarate");
 	free_irq(gpio_to_irq(max110x0_sync_gpio(zdev)), cset);
 free_data_cxt:
 	free_max110x0_context(data_cxt);
@@ -360,25 +353,25 @@ static int max110x0_zio_probe(struct zio_device *zdev)
 static void max110x0_last_complete(void *cont)
 {
 	struct max110x0_context *cxt = cont;
-	struct zio_cset *cset = cxt->cset;
-
-	/* deregister data_cxt handler */
-	free_irq(gpio_to_irq(max110x0_sync_gpio(cset->zdev)), cset);
-	complete_all(&cxt->done);
+	cxt->msg.complete = 0;
+	complete(&cxt->done);
 }
 
 static int max110x0_zio_remove(struct zio_device *zdev)
 {
+
 	struct zio_cset *cset = zdev->cset;
 	struct max110x0_context *cxt = cset->priv_d;
 
-	/* free the context */
+	/* stop the spi data transfers, and so the irq to happen */
 	init_completion(&cxt->done);
 	cxt->msg.complete = max110x0_last_complete;
 	wait_for_completion(&cxt->done);
-	free_max110x0_context(cxt);
 
-	/* FIXME: how to stop already queued spi messages ? */
+	/* deregister data_cxt handler */
+	free_irq(gpio_to_irq(max110x0_sync_gpio(cset->zdev)), cset);
+	/* free the context */
+	free_max110x0_context(cxt);
 
 	return 0;
 }
@@ -420,12 +413,10 @@ static int max110x0_spi_probe(struct spi_device *spi)
 	//max11040_ain_cset->n_chan = 4 + 4 * spi->chip_select;
 
 	/* Configure SPI */
-	/* FIXME: default to 8 (as ctrl reg)
-	   NOTE spi_transfer.bits_per_word can override this for each transfer */
-	// spi->bits_per_word = 16;
 	err = spi_setup(spi);
 	if (err)
 		goto errout;
+
 	err = -ENOENT;
 	spi_id = spi_get_device_id(spi);
 	if (!spi_id)
@@ -454,8 +445,6 @@ static int max110x0_spi_remove(struct spi_device *spi)
 	struct zio_device *zdev;
 	struct max110x0 *max110x0;
 
-	/* zdev here is the generic device */
-	/* FIXME: but SPI? May I kfree all even with an active command */
 	zdev = spi_get_drvdata(spi);
 	max110x0 = zdev->priv_d;
 	zio_unregister_device(zdev);
