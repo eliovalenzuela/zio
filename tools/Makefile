@@ -3,7 +3,8 @@
 
 CFLAGS = -I$(M)/include/ -I$(M)/lib -Wall $(ZIO_VERSION) $(EXTRACFLAGS)
 CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
-LDLIBS += -Wl,-Bstatic -L$(M)/lib -lzio
+LDFLAGS := -L$(M)/lib
+LDLIBS += -Wl,-Bstatic -lzio
 LDLIBS += -Wl,-Bdynamic
 
 CC ?= $(CROSS_COMPILE)gcc
@@ -21,4 +22,4 @@ clean:
 	rm -f $(progs) *~ *.o
 
 %: %.c
-	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ $(LDLIBS)
