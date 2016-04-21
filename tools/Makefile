@@ -1,11 +1,9 @@
 
 # build user-space tools for zio
 
-CFLAGS = -I$(M)/include/ -I$(ZIO)/lib -Wall $(ZIO_VERSION) $(EXTRACFLAGS)
+CFLAGS = -I$(M)/include/ -I$(M)/lib -Wall $(ZIO_VERSION) $(EXTRACFLAGS)
 CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
-CFLAGS = -I$(ZIO)/include/ -I$(ZIO)/lib
-CFLAGS += -Wall -Werror $(ZIO_VERSION) $(EXTRACFLAGS)
-LDLIBS += -Wl,-Bstatic -L$(ZIO)/lib -lzio
+LDLIBS += -Wl,-Bstatic -L$(M)/lib -lzio
 LDLIBS += -Wl,-Bdynamic
 
 CC ?= $(CROSS_COMPILE)gcc
