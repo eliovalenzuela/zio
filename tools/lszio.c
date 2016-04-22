@@ -166,7 +166,6 @@ static void zds_print_verbose(char *name, unsigned int level)
 		zds_print_v(uzdev);
 		break;
 	case 2:
-		zds_print_v(uzdev);
 		zds_print_vv(uzdev);
 		break;
 	}

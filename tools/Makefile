@@ -3,6 +3,7 @@
 
 CFLAGS = -I$(M)/include/ -I$(M)/lib -Wall $(ZIO_VERSION) $(EXTRACFLAGS)
 CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
+CFLGAS += -ggdb
 LDFLAGS := -L$(M)/lib
 LDLIBS += -Wl,-Bstatic -lzio
 LDLIBS += -Wl,-Bdynamic
