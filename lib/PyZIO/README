@@ -1,0 +1,9 @@
+This is a Python package to handle ZIO devices. It includes varius python's
+modules which describe all the ZIO's objects:
+
+- ZioObject: is an abstract class for all ZIO objects
+- ZioDev: it describes the zio_device structure of a ZIO device
+- ZioCset: it describes the zio_cset structure of a ZIO device
+- ZioChan: it describes the zio_channel structure of a ZIO device
+- ZioBuf: it describes the zio_bi struture of a ZIO buffer
+- ZioTrig: it describes the zio_ti structure of a ZIO trigger
