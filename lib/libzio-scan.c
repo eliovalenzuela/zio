@@ -411,7 +411,7 @@ struct uzio_module_list *uzio_device_list(void)
 			continue; /* Not a real device */
 
 		list->names[d] = strdup(name);
-		if (!list->names[i])
+		if (!list->names[d])
 			goto out_name_i;
 		d++;
 	}
