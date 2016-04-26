@@ -116,6 +116,7 @@ static int __uzio_device_cset_chan_add(struct uzio_cset *cset)
 		err = -1;
 		goto out_alloc;
 	}
+	memset(cset->chan, 0, sizeof(struct uzio_channel) * cset->n_chan);
 	for (i = 0; i < cset->n_chan; ++i) {
 		chan = &cset->chan[i];
 		strncpy(chan->head.sysbase, gchan.gl_pathv[i],
@@ -213,6 +214,7 @@ static int __uzio_device_cset_add(struct uzio_device *dev)
 	dev->cset = malloc(sizeof(struct uzio_cset) * dev->n_cset);
 	if (!dev->cset)
 		goto out_alloc;
+	memset(dev->cset, 0, sizeof(struct uzio_cset) * dev->n_cset);
 	for (i = 0; i < dev->n_cset; ++i) {
 		cset = &dev->cset[i];
 		strncpy(cset->head.sysbase, gcset.gl_pathv[i],
@@ -289,6 +291,7 @@ struct uzio_device *__uzio_device_open(char *name)
 	dev = malloc(sizeof(struct uzio_device));
 	if (!dev)
 		return NULL;
+	memset(dev, 0, sizeof(struct uzio_device));
 
 	strncpy(dev->head.sysbase, name, UZIO_MAX_PATH_LEN);
 
