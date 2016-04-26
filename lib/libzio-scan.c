@@ -287,6 +287,7 @@ struct uzio_device *__uzio_device_open(char *name)
 	struct uzio_device *dev;
 	struct stat st;
 	int err;
+	ssize_t r;
 
 	dev = malloc(sizeof(struct uzio_device));
 	if (!dev)
@@ -296,7 +297,26 @@ struct uzio_device *__uzio_device_open(char *name)
 	strncpy(dev->head.sysbase, name, UZIO_MAX_PATH_LEN);
 
 	err = stat(dev->head.sysbase, &st);
-	if (err < 0 || !S_ISDIR(st.st_mode)) {
+	if (err < 0) {
+		errno = EUZIONODEV;
+		goto out_stat;
+	}
+
+	if (S_ISLNK(st.st_mode)) {
+		/* If it is a link, resolve it */
+		r = readlink(dev->head.sysbase, dev->head.sysbase,
+			     UZIO_MAX_PATH_LEN);
+		printf("%s:%d %s\n", __func__, __LINE__, dev->head.sysbase);
+		if (r < 0)
+			goto out_stat;
+	}
+
+	err = stat(dev->head.sysbase, &st);
+	if (err < 0) {
+		errno = EUZIONODEV;
+		goto out_stat;
+	}
+	if (!S_ISDIR(st.st_mode)) {
 		errno = EUZIONODEV;
 		goto out_stat;
 	}
