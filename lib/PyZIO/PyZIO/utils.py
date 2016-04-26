@@ -24,7 +24,7 @@ def buffer_list():
     if mlist:
         print(mlist)
         for i in range(0, mlist.contents.len):
-            names.append(str(mlist.contents.names[i].decode("ascii")))
+            names.append(str(mlist.contents.names[i].decode("utf-8")))
 
     libzio.uzio_module_list_free.argtypes = [POINTER(ModuleList)]
     libzio.uzio_module_list_free(mlist)
@@ -40,7 +40,7 @@ def device_list():
     names = []
     if mlist:
         for i in range(0, mlist.contents.len):
-            names.append(str(mlist.contents.names[i].decode("ascii")))
+            names.append(str(mlist.contents.names[i].decode("utf-8")))
         libzio.uzio_module_list_free.argtypes = [POINTER(ModuleList)]
         libzio.uzio_module_list_free(mlist)
 
@@ -55,7 +55,7 @@ def trigger_list():
     names = []
     if mlist:
         for i in range(0, mlist.contents.len):
-            names.append(str(mlist.contents.names[i].decode("ascii")))
+            names.append(str(mlist.contents.names[i].decode("utf-8")))
         libzio.uzio_module_list_free.argtypes = [POINTER(ModuleList)]
         libzio.uzio_module_list_free(mlist)
 
