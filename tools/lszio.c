@@ -157,7 +157,7 @@ static void zds_print_verbose(char *name, unsigned int level)
 
 	uzdev = uzio_device_open_by_name(name);
 	if (!uzdev) {
-	  printf("Error : %s", uzio_strerror(errno));
+	  printf("Error : %s\n", uzio_strerror(errno));
 		exit(1);
 	}
 
