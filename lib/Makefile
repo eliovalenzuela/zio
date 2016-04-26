@@ -26,6 +26,7 @@ lib: $(LIBSTAT) $(LIBSHARE)
 
 $(LIBSTAT): $(LOBJ)
 	ar r $@ $^
+	ranlib $@
 
 $(LIBSHARE): $(LIBSTAT)
 		$(CC) -shared  -o $@ -Wl,--whole-archive,-soname,$@ $^ -Wl,--no-whole-archive
