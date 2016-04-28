@@ -697,6 +697,8 @@ static ssize_t zobj_show_devname(struct device *dev,
 	struct zio_obj_head *head = to_zio_head(dev);
 	struct zio_channel *chan;
 	struct zio_cset *cset;
+	struct zio_ti *ti;
+	struct zio_bi *bi;
 	char *mask;
 
 	switch (head->zobj_type) {
@@ -710,6 +712,18 @@ static ssize_t zobj_show_devname(struct device *dev,
 		chan = to_zio_chan(dev);
 		mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "%s-%i-i\n" :
 								"%s-%i-%i\n";
+		return sprintf(buf, mask, dev_name(&chan->cset->zdev->head.dev),
+			       chan->cset->index, chan->index);
+	case ZIO_TI:
+		ti = to_zio_ti(dev);
+		cset = ti->cset;
+		return sprintf(buf, "%s-%i-t\n",
+			       dev_name(&cset->zdev->head.dev), cset->index);
+	case ZIO_BI:
+		bi = to_zio_bi(dev);
+		chan = bi->chan;
+		mask = chan->flags & ZIO_CSET_CHAN_INTERLEAVE ? "%s-%i-i-b\n" :
+								"%s-%i-%i-b\n";
 		return sprintf(buf, mask, dev_name(&chan->cset->zdev->head.dev),
 			       chan->cset->index, chan->index);
 	default:
@@ -976,6 +990,7 @@ static struct device_attribute zio_default_attributes[] = {
 };
 /* default attributes for most of the zio objects */
 static struct attribute *def_obj_attrs_ptr[] = {
+	&zio_default_attributes[ZIO_DAN_DNAM].attr,
 	&zio_default_attributes[ZIO_DAN_NAME].attr,
 	&zio_default_attributes[ZIO_DAN_ENAB].attr,
 	&zio_default_attributes[ZIO_DAN_TYPE].attr,
@@ -983,7 +998,6 @@ static struct attribute *def_obj_attrs_ptr[] = {
 };
 /* default attributes for hierachy components (dev/cset/chan) */
 static struct attribute *def_hie_attrs_ptr[] = {
-	&zio_default_attributes[ZIO_DAN_DNAM].attr,
 	NULL,
 };
 /* default attributes for channel set */
@@ -1000,6 +1014,7 @@ static struct attribute *def_chan_attrs_ptr[] = {
 };
 /* default attributes for buffer instance */
 static struct attribute *def_bi_attrs_ptr[] = {
+	&zio_default_attributes[ZIO_DAN_DNAM].attr,
 	&zio_default_attributes[ZIO_DAN_NAME].attr,
 	&zio_default_attributes[ZIO_DAN_TYPE].attr,
 	&zio_default_attributes[ZIO_DAN_FLUS].attr,
