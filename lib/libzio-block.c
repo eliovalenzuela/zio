@@ -33,9 +33,9 @@ static int _uzio_block_ctrl_rw(struct uzio_channel *uchan,
 
 	/* Read data */
 	if (cset->flags & UZIO_CSET_FLAG_DIRECTION)
-		i = read(uchan->fd_ctrl, ctrl, __ZIO_CONTROL_SIZE);
-	else
 		i = write(uchan->fd_ctrl, ctrl, __ZIO_CONTROL_SIZE);
+	else
+		i = read(uchan->fd_ctrl, ctrl, __ZIO_CONTROL_SIZE);
 	switch (i) {
 	case -1:
 	        return -1;
