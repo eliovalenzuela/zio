@@ -243,6 +243,32 @@ class Channel(Head):
 
         super(Channel, self).__init__(self.tkn.head)
 
+    def __binary_to_list(self, ctrl, binary):
+        size = "b"
+        if ctrl.ssize == 1:
+            data = cast(binary, POINTER(c_uint8 * ctrl.nsamples))
+        elif ctrl.ssize == 2:
+            data = cast(binary, POINTER(c_uint16 * ctrl.nsamples))
+        elif ctrl.ssize == 4:
+            data = cast(binary, POINTER(c_uint32 * ctrl.nsamples))
+        elif ctrl.ssize == 8:
+            data = cast(binary, POINTER(c_uint64 * ctrl.nsamples))
+
+        return data.contents
+
+    def block_read(self):
+        uzio_block_read = libzio.uzio_block_read
+        uzio_block_read.argtypes = [POINTER(uzio_channel), ]
+        uzio_block_read.restype = POINTER(uzio_block)
+
+        block = uzio_block_read(self.tkn)
+        if not block:
+            raise PyZIOException("Cannot read block on channel '%s': %s" % \
+                                 (self, uzio_strerror(get_errno())))
+        ctrl = block.contents.ctrl
+        data = self.__binary_to_list(ctrl, block.contents.data)
+        return (ctrl, data)
+
 
 class ChannelSet(Head):
     def __init__(self, cset):
@@ -254,6 +280,15 @@ class ChannelSet(Head):
             self.chans.append(Channel(self.tkn.chan[i]))
 
         super(ChannelSet, self).__init__(self.tkn.head)
+
+    def block_read(self):
+        """
+        It reads all block from channels
+        """
+        blocks = []
+        for chan in self.chans:
+            blocks.append(chan.read_block())
+        return blocks
 
 
 class Device(Head):
