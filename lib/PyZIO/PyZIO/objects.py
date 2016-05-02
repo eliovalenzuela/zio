@@ -6,11 +6,82 @@
 """
 from ctypes import *
 import os
+import time
+import struct
 
 libzio = CDLL("libzio.so", use_errno=True)
 uzio_strerror = libzio.uzio_strerror
 uzio_strerror.argtypes = [c_uint, ]
 uzio_strerror.restype = c_char_p
+
+class zio_tlv(Structure):
+    _fields_ = [
+        ("type", c_uint32),
+        ("length", c_uint32),
+        ("payload", c_uint8 * 8),
+        ]
+
+
+class zio_addr(Structure):
+    _fields_ = [
+        ("sa_family", c_uint16),
+        ("host_type", c_uint8),
+        ("filler", c_uint8),
+        ("hostid", c_char * 8),
+        ("dev_id", c_uint32),
+        ("cset", c_uint16),
+        ("chan", c_uint16),
+        ("devname", c_char * 12),
+        ]
+
+
+class zio_timestamp(Structure):
+    _fields_ = [
+        ("secs", c_uint64),
+        ("ticks", c_uint64),
+        ("bins", c_uint64),
+        ]
+
+
+
+class zio_ctrl_attr(Structure):
+    _fields_ = [
+        ("std_mask", c_uint16),
+        ("unused", c_uint16),
+        ("ext_mask", c_uint32),
+        ("std_val", c_uint32 * 16),
+        ("ext_val", c_uint32 * 32),
+        ]
+
+
+class zio_control(Structure):
+    _fields_ = [
+        ("major_version", c_uint8),
+        ("minor_version", c_uint8),
+        ("zio_alarms", c_uint8),
+        ("drv_alarms", c_uint8),
+        ("seq_num", c_uint32),
+        ("nsamples", c_uint32),
+        ("ssize", c_uint16),
+        ("nbits", c_uint16),
+        ("addr", zio_addr),
+        ("tstamp", zio_timestamp),
+        ("mem_offset", c_uint32),
+        ("reserved", c_uint32),
+        ("flags", c_uint32),
+        ("triggername", c_char * 12),
+        ("attr_channel", zio_ctrl_attr),
+        ("attr_trigger", zio_ctrl_attr),
+        ("tlv", zio_tlv * 1),
+        ]
+
+
+class uzio_block(Structure):
+    _fields_ = [
+        ("ctrl", zio_control),
+        ("data", c_void_p),
+        ("datalen", c_size_t),
+        ]
 
 
 class uzio_attribute(Structure):
