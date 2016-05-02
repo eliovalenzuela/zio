@@ -45,6 +45,10 @@ int uzio_trigger_change(struct uzio_cset *cset, char *name, unsigned int n)
 	int ret;
 
 	ret = uzio_attr_string_set(&cset->current_trigger, name, n);
+	if (ret < 0)
+		return -1;
+
+	/* TODO update trigger instance */
 	return ret < 0 ? -1 : 0;
 }
 

@@ -188,13 +188,21 @@ static void __uzio_device_cset_chan_del(struct uzio_cset *cset)
 
 static int __uzio_device_cset_trig_add(struct uzio_cset *cset)
 {
+	int err;
+
 	snprintf(cset->trigger.head.sysbase, UZIO_MAX_PATH_LEN,
 		 "%s/trigger", cset->head.sysbase);
+
+	err = __uzio_object_add(&cset->trigger.head);
+	if (err)
+	        return -1;
+
 	return __uzio_attributes_add(&cset->trigger.head);
 }
 
 static void __uzio_device_cset_trig_del(struct uzio_cset *cset)
 {
+	memset(&cset->trigger, 0, sizeof(struct uzio_trigger));
 	return;
 }
 
