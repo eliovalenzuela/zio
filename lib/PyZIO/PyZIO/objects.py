@@ -223,6 +223,20 @@ class Head(object):
         return "%s" % (self.head.name.decode())
 
 
+class Trigger(Head):
+    def __init__(self, trig):
+        self.tkn = trig
+
+        super(Trigger, self).__init__(self.tkn.head)
+
+
+class Buffer(Head):
+    def __init__(self, buf):
+        self.tkn = buf
+
+        super(Buffer, self).__init__(self.tkn.head)
+
+
 class Channel(Head):
     def __init__(self, chan):
         self.tkn = chan
