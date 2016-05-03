@@ -216,6 +216,20 @@ class Head(object):
             self.attr.append(Attribute(self.head.ext[i]))
             i += 1
 
+    def enable(self):
+        """
+        It enables the ZIO object
+        """
+        with open(self.head.enable.path, 'w') as f:
+            f.write("1")
+
+    def disable(self):
+        """
+        It disables the ZIO object
+        """
+        with open(self.head.enable.path, 'w') as f:
+            f.write("0")
+
     def __repr__(self):
         return "%s" % (self.head.devname.decode())
 
