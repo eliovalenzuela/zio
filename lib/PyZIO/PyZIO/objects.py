@@ -250,12 +250,20 @@ class Buffer(Head):
 
         super(Buffer, self).__init__(self.tkn.head)
 
+    def flush(self):
+        """
+        It flushes the buffer
+        """
+        with open(self.tkn.flush.path, 'w') as f:
+            f.write("1")
+
 
 class Channel(Head):
     def __init__(self, chan):
         self.tkn = chan
 
         super(Channel, self).__init__(self.tkn.head)
+        self.buffer = Buffer(self.tkn.buffer)
 
     def __binary_to_list(self, ctrl, binary):
         size = "b"
@@ -282,6 +290,9 @@ class Channel(Head):
         ctrl = block.contents.ctrl
         data = self.__binary_to_list(ctrl, block.contents.data)
         return (ctrl, data)
+
+    def block_flush(self):
+        self.buffer.flush()
 
 
 class ChannelSet(Head):
