@@ -216,19 +216,21 @@ class Head(object):
             self.attr.append(Attribute(self.head.ext[i]))
             i += 1
 
+    @property
     def enable(self):
+        with open(self.head.enable.path, 'r') as f:
+            value = f.read()
+            return True if int(value) else False
+
+    @enable.setter
+    def enable(self, value):
         """
         It enables the ZIO object
         """
+        if not isinstance(value, bool):
+            raise TypeError("enable property expect a Boolean value")
         with open(self.head.enable.path, 'w') as f:
-            f.write("1")
-
-    def disable(self):
-        """
-        It disables the ZIO object
-        """
-        with open(self.head.enable.path, 'w') as f:
-            f.write("0")
+            f.write("1" if value else "0")
 
     def __repr__(self):
         return "%s" % (self.head.devname.decode())
