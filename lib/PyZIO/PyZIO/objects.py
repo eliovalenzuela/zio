@@ -305,7 +305,7 @@ class ChannelSet(Head):
         self.chans = []
         for i in range(0, self.tkn.n_chan):
             self.chans.append(Channel(self.tkn.chan[i]))
-
+        self.trigger = Trigger(self.tkn.trigger)
         super(ChannelSet, self).__init__(self.tkn.head)
 
     def block_read(self):
