@@ -859,6 +859,14 @@ static ssize_t zio_show_pref(struct device *dev,
 }
 
 
+static ssize_t zio_show_inte(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	struct zio_channel *chan = to_zio_chan(dev);
+
+	return sprintf(buf, "%d\n", !!(chan->flags & ZIO_CSET_CHAN_INTERLEAVE));
+}
+
 #if ZIO_HAS_BINARY_CONTROL
 /*
  * zobj_read_cur_ctrl
@@ -938,6 +946,7 @@ enum zio_default_attribute_numeration {
 	ZIO_DAN_ALAR,	/* alarms */
 	ZIO_DAN_DIRE,   /* direction */
 	ZIO_DAN_PREF,	/* prefer-new */
+	ZIO_DAN_INTE,	/* interleave */
 };
 
 /* default zio attributes */
@@ -962,6 +971,8 @@ static struct device_attribute zio_default_attributes[] = {
 				zio_show_dire, NULL),
 	[ZIO_DAN_PREF] = __ATTR(prefer-new, ZIO_RW_PERM,
 				zio_show_pref, zio_store_pref),
+	[ZIO_DAN_INTE] = __ATTR(interleave, ZIO_RW_PERM,
+				zio_show_inte, NULL),
 	__ATTR_NULL,
 };
 /* default attributes for most of the zio objects */
@@ -986,6 +997,7 @@ static struct attribute *def_cset_attrs_ptr[] = {
 /* default attributes for channel */
 static struct attribute *def_chan_attrs_ptr[] = {
 	&zio_default_attributes[ZIO_DAN_ALAR].attr,
+	&zio_default_attributes[ZIO_DAN_INTE].attr,
 	NULL,
 };
 /* default attributes for buffer instance */
