@@ -17,6 +17,12 @@
 
 #include "libzio.h"
 
+
+/**
+ * It adds standard and extended attributes associated to a given zio object
+ * @param[in] zobj zio object to inspect
+ * @return 0 on success, otherwise -1 and errno is appropriately set
+ */
 static int __uzio_attributes_add(struct uzio_object *zobj)
 {
 	char pattern[UZIO_MAX_PATH_LEN];
@@ -45,6 +51,12 @@ static int __uzio_attributes_add(struct uzio_object *zobj)
 	return 0;
 }
 
+
+/**
+ * It fills a zio object information
+ * @param[in] zobj zio object to inspect
+ * @return 0 on success, otherwise -1 and errno is appropriately set
+ */
 static int __uzio_object_add(struct uzio_object *zobj)
 {
 	char tmp[ZIO_OBJ_NAME_FULL_LEN];
@@ -80,6 +92,8 @@ static int __uzio_object_add(struct uzio_object *zobj)
 
 	return __uzio_attributes_add(zobj);
 }
+
+
 
 static int __uzio_device_cset_chan_buf_add(struct uzio_channel *chan)
 {
@@ -117,6 +131,11 @@ static void __uzio_device_cset_interleave_set(struct uzio_cset *cset)
 }
 
 
+/**
+ * It adds a channel to a channel-set
+ * @param[in] cset channel-set to update
+ * @return 0 on success, otherwise -1 and errno is appropriately set
+ */
 static int __uzio_device_cset_chan_add(struct uzio_cset *cset)
 {
 	struct uzio_channel *chan;
@@ -206,6 +225,12 @@ static void __uzio_device_cset_chan_del(struct uzio_cset *cset)
 	free(cset->chan);
 }
 
+
+/**
+ * It adds a trigger to a channel-set
+ * @param[in] cset channel-set to update
+ * @return 0 on success, otherwise -1 and errno is appropriately set
+ */
 static int __uzio_device_cset_trig_add(struct uzio_cset *cset)
 {
 	int err;
