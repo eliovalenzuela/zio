@@ -99,12 +99,32 @@ static void __uzio_device_cset_chan_buf_del(struct uzio_channel *chan)
 	return;
 }
 
+
+static void __uzio_device_cset_interleave_set(struct uzio_cset *cset)
+{
+	char path[UZIO_MAX_PATH_LEN];
+	struct stat st;
+	int err;
+
+	snprintf(path, UZIO_MAX_PATH_LEN, "%s/chani", cset->head.sysbase);
+	err = stat(path, &st);
+	if (err < 0) {
+		/* The device does not have any interleave channel */
+	        return;
+	}
+
+	cset->flags |= UZIO_CSET_FLAG_INTERLEAVE;
+}
+
+
 static int __uzio_device_cset_chan_add(struct uzio_cset *cset)
 {
 	struct uzio_channel *chan;
 	char pattern[UZIO_MAX_PATH_LEN], path[UZIO_MAX_PATH_LEN];
 	glob_t gchan;
 	int err = 0, i, dir;
+
+	__uzio_device_cset_interleave_set(cset);
 
 	snprintf(pattern, UZIO_MAX_PATH_LEN, "%s/chan*", cset->head.sysbase);
 	glob(pattern, GLOB_ONLYDIR, NULL, &gchan);
