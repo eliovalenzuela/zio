@@ -970,7 +970,7 @@ static int cset_register(struct zio_cset *cset, struct zio_cset *cset_t)
 			goto out_reg;
 
 		/* if interleave only, normal channels are disabled */
-		if (cset->flags & ZIO_CSET_INTERLEAVE_ONLY)
+		if (i < cset->n_chan - 1 && cset->flags & ZIO_CSET_INTERLEAVE_ONLY)
 			cset->chan[i].flags |= ZIO_DISABLED;
 	}
 
