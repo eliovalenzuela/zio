@@ -12,6 +12,7 @@ ccflags-y += $(ZIO_VERSION)
 ccflags-$(CONFIG_ZIO_DEBUG) += -DDEBUG
 
 obj-m = zio-zero.o
+obj-m += zio-spidzero.o
 obj-m += zio-loop.o
 obj-m += zio-irq-tdc.o
 obj-m += zio-fake-dtc.o
