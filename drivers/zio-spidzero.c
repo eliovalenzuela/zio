@@ -75,6 +75,7 @@ static void zzero_get_sequence(struct zio_channel *chan,
 		for (i = 6; i < ichan; i++, ptr++) {
 			get_random_bytes(ptr, 4);
 		}
+		(*value)++;
 		datalen -= chunksize;
 	}
 }
