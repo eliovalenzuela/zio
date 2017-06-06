@@ -179,8 +179,8 @@ static void max110x0_work_handler(struct work_struct *w) {
 	} else {
 		buf = block->data;
 		buf += cxt->curr_sample;
-		xfer.rx_buf = rx_buf;
-		//xfer.rx_buf = buf;
+		//xfer.rx_buf = rx_buf;
+		xfer.rx_buf = buf;
 	}
 	xfer.tx_buf = tx_buf;
 	xfer.len = MICOSI_BLK_SIZE;
@@ -191,8 +191,8 @@ static void max110x0_work_handler(struct work_struct *w) {
 	if (ret) {
 		printk("error in spi_sync\n");
 	}
-	if (buf)
-		memcpy(buf, rx_buf, MICOSI_BLK_SIZE);
+	//if (buf)
+	//	memcpy(buf, rx_buf, MICOSI_BLK_SIZE);
 	cxt->curr_sample += MICOSI_BLK_SAMPLES;
 
 	if (unlikely(cxt->curr_sample >= nsamples)) {
