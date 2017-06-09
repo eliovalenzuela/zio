@@ -84,13 +84,16 @@ enum max110x0i_devices {
 struct spi_context {
 	struct spi_device *spi;
 	uint32_t curr_sample;
+	struct spi_message msg;
+	struct spi_transfer xfer;
+	uint16_t *tx_buf;
+	uint16_t *rx_buf;
+	atomic_t busy;
 };
 
-static struct workqueue_struct *zwq;
+/*static struct workqueue_struct *zwq;
 static void max110x0_work_handler(struct work_struct *w); 
-static DECLARE_WORK(max110x0_work, max110x0_work_handler);
-
-static uint8_t *tx_buf, *rx_buf;
+static DECLARE_WORK(max110x0_work, max110x0_work_handler);*/
 
  /* linked in the priv_d pointer of the global zio device zdev */
 struct max110x0i {
@@ -141,64 +144,59 @@ static const struct zio_sysfs_operations max110x0i_s_op = {
 
 static irqreturn_t max110x0i_gpio_irq(int irq, void *arg)
 {
+	struct spi_context *cxt = max110x0i_data->cxt;
+
 	if (unlikely(gpio_get_value(MAX110X0_IRQ_GPIO)))
-		return IRQ_HANDLED;
+		goto done;
 	
-	queue_work(zwq, &max110x0_work);
+	if (unlikely(spi_async_locked(cxt->spi, &cxt->msg))) {
+		// TODO: if error ???
+		goto done;
+	}
+	atomic_inc(&cxt->busy);
+done:
 	return IRQ_HANDLED;
 }
 
-static void max110x0_work_handler(struct work_struct *w) {
+static void max110x0i_complete(void *cont) {
 	struct zio_cset *cset = max110x0i_data->cset;
 	struct zio_ti *ti = cset->ti;
 	struct zio_channel *chan = &(cset->chan[MAX110X0_NICHANNELS]);
 	struct zio_block *block = chan->active_block;
 	struct spi_context *cxt = max110x0i_data->cxt;
-	struct spi_message msg;
-	struct spi_transfer xfer;
 	int32_t *buf = 0;
-	int ret;
 	unsigned long flags;
 	int32_t nsamples = chan->current_ctrl->nsamples,
 		avail_space = nsamples - cxt->curr_sample;
 
-	memset(&xfer, 0, sizeof(xfer));
+	// do nothing if no block or there is not enough space available
 	if (unlikely(!block)) {
 		spin_lock_irqsave(&cset->lock, flags);
 		ti->flags &= ~ZIO_TI_ARMED;
 		spin_unlock_irqrestore(&cset->lock, flags);
 		chan->current_ctrl->zio_alarms |= ZIO_ALARM_LOST_TRIGGER;
-		//printk("buffer full\n");
+		//printk("block null\n");
 		cxt->curr_sample = 0;
-		xfer.rx_buf = 0;
-	} else if (unlikely(avail_space < MICOSI_BLK_SAMPLES)) { // do nothing if no block or there is not enough space available 
+		goto done;
+	} else if (unlikely(avail_space < MICOSI_BLK_SAMPLES)) { 
 		chan->current_ctrl->zio_alarms |= ZIO_ALARM_LOST_TRIGGER;
-		//printk("buffer unaligned: %d required, %d avaliable \n", min_space, avail_space);
+		//basenaprintk("buffer unaligned: %d required, %d avaliable \n", MICOSI_BLK_SAMPLES, avail_space);
 		cxt->curr_sample = 0;
-		xfer.rx_buf = 0;
-	} else {
-		buf = block->data;
-		buf += cxt->curr_sample;
-		//xfer.rx_buf = rx_buf;
-		xfer.rx_buf = buf;
-	}
-	xfer.tx_buf = tx_buf;
-	xfer.len = MICOSI_BLK_SIZE;
+		goto done;
+	} 
 
-	spi_message_init(&msg);
-	spi_message_add_tail(&xfer, &msg);
-	ret = spi_sync(cxt->spi, &msg);
-	if (ret) {
-		printk("error in spi_sync\n");
-	}
-	//if (buf)
-	//	memcpy(buf, rx_buf, MICOSI_BLK_SIZE);
+	buf = block->data;
+	buf += cxt->curr_sample;
+	memcpy(buf, cxt->rx_buf, MICOSI_BLK_SIZE);
 	cxt->curr_sample += MICOSI_BLK_SAMPLES;
-
+	//printk("%d %d", cxt->curr_sample, nsamples);
 	if (unlikely(cxt->curr_sample >= nsamples)) {
         cxt->curr_sample = 0;
         zio_trigger_data_done(cset);
     }
+
+done:
+	atomic_dec(&cxt->busy);
 }
 
 static int max110x0i_raw_io(struct zio_cset *cset)
@@ -278,35 +276,45 @@ static struct zio_driver max110x0i_zdrv = {
 /* We create a ZIO device when our SPI driver gets access to a physical dev */
 static int max110x0i_spi_probe(struct spi_device *spi)
 {
-	struct spi_context *cxt;
+	struct spi_context *cxt = max110x0i_data->cxt;
 	int err = 0;
 
+	atomic_set(&cxt->busy, 0);
+
+	// set the scheduling policy to FIFO with lower jitter
+	spi->master->rt = 1;  
+	spi->bits_per_word = 16;
 	/* Configure SPI */
 	err = spi_setup(spi);
 	if (err) {
 		return err;
 	}
 
-	cxt = max110x0i_data->cxt;
-	cxt->spi = spi;
 	/* setup the spi to be ready to handle data */
-	tx_buf = kzalloc(MICOSI_BLK_SIZE, GFP_ATOMIC);
-	if (!tx_buf) {
+	cxt->spi = spi;
+	cxt->tx_buf = kzalloc(MICOSI_BLK_SIZE, GFP_ATOMIC);
+	cxt->rx_buf = kzalloc(MICOSI_BLK_SIZE, GFP_ATOMIC);
+	if (!cxt->tx_buf || !cxt->rx_buf) {
+		kfree(cxt->tx_buf);
+		kfree(cxt->rx_buf);
 		return -ENOMEM;
 	}
-	rx_buf = kzalloc(MICOSI_BLK_SIZE, GFP_ATOMIC);
-	if (!rx_buf) {
-		kfree(tx_buf);
-		return -ENOMEM;
-	}
-
+	cxt->xfer.rx_buf = cxt->rx_buf;
+	cxt->xfer.tx_buf = cxt->tx_buf;
+	cxt->xfer.len = MICOSI_BLK_SIZE;
+	spi_message_init(&cxt->msg);
+	cxt->msg.complete = max110x0i_complete;
+	cxt->msg.context = cxt;
+	spi_message_add_tail(&cxt->xfer, &cxt->msg);
+	
 	return 0;	
 }
 
 static int max110x0i_spi_remove(struct spi_device *spi)
 {
-	kfree(tx_buf);
-	kfree(rx_buf);
+	struct spi_context *cxt = max110x0i_data->cxt;
+	kfree(cxt->tx_buf);
+	kfree(cxt->rx_buf);
 
 	/* reset the pointer for the spi */
 	/*if (dev_id < MAX110X0_SPI_DEVICES) {
@@ -339,9 +347,9 @@ static int __init max110x0i_init(void)
 	struct zio_device *zdev;
 	int err, i;
 
-	zwq = create_workqueue("zio-max110x0i-workqueue");
+	/*zwq = create_workqueue("zio-max110x0i-workqueue");
 	if (!zwq)
-		return -1;
+		return -1;*/
 
 	max110x0i_data = kzalloc(sizeof(struct max110x0i), GFP_KERNEL);
 	if (!max110x0i_data) {
@@ -400,18 +408,24 @@ errout:
 static void __exit max110x0i_exit(void)
 {
 	struct zio_device *zdev = max110x0i_data->zdev;
+	struct spi_context *cxt = max110x0i_data->cxt; 
 
 	/* deregister data_cxt handler */
-	free_irq(MAX110X0_IRQ, max110x0i_data->cxt);
+	free_irq(MAX110X0_IRQ, cxt);
+
+	// wait the end of last spi transfer
+	while(atomic_read(&cxt->busy)) {
+		msleep(10);
+	}
 
 	// cancel delayed work and wait to finish
-	flush_workqueue(zwq);
-	destroy_workqueue(zwq);
+	//flush_workqueue(zwq);
+	//destroy_workqueue(zwq);
 
 	driver_unregister(&max110x0i_driver.driver); /* call spi_remove */
 	zio_unregister_device(zdev);
 	zio_free_device(zdev);
-	kfree(max110x0i_data->cxt);
+	kfree(cxt);
 	kfree(max110x0i_data);
 	zio_unregister_driver(&max110x0i_zdrv);
 }
