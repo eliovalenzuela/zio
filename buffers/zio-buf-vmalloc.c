@@ -8,6 +8,7 @@
  * what changes.
  */
 
+#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -23,6 +24,12 @@
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
 #include <linux/zio-trigger.h>
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))
+#define	address_of(vmf)	((void*)(vmf)->address)
+#else
+#define	address_of(vmf)	((vmf)->virtual_address)
+#endif
 
 /*
  * We export a linear buffer to user space, for a single mmap call.
@@ -460,7 +467,7 @@ static int zbk_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	addr = zbki->data + off;
 	pr_debug("%s: uaddr %p, off %li: kaddr %p\n", __func__,
-		 vmf->virtual_address, off, addr);
+		 address_of(vmf), off, addr);
 	p = vmalloc_to_page(addr);
 	get_page(p);
 	vmf->page = p;
