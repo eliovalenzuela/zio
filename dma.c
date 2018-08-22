@@ -222,7 +222,8 @@ int zio_dma_map_sg(struct zio_dma_sgt *zdma, size_t page_desc_size,
 	zdma->dma_page_desc_pool = dma_map_single(zdma->hwdev,
 						  zdma->page_desc_pool, size,
 						  DMA_TO_DEVICE);
-	if (!zdma->dma_page_desc_pool) {
+	if (dma_mapping_error(zdma->hwdev, zdma->dma_page_desc_pool)) {
+		dev_err(zdma->hwdev, "cannot map dma memory for descriptors\n");
 		err = -ENOMEM;
 		goto out_map_single;
 	}
