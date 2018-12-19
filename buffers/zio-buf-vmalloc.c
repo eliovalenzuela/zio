@@ -448,9 +448,8 @@ static void zbk_close(struct vm_area_struct *vma)
 
 	atomic_dec(&zbki->map_count);
 }
-static int zbk_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+static int __zbk_fault(struct vm_fault *vmf, struct file *f)
 {
-	struct file *f = vma->vm_file;
 	struct zio_f_priv *priv = f->private_data;
 	struct zio_bi *bi = priv->chan->bi;
 	struct zbk_instance *zbki = to_zbki(bi);
@@ -473,6 +472,25 @@ static int zbk_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	vmf->page = p;
 	return 0;
 }
+
+#if KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE
+static int zbk_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+	return __zbk_fault(vmf, vma->vm_file);
+}
+#else
+#if KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE
+static int zbk_fault(struct vm_fault *vmf)
+{
+	return __zbk_fault(vmf, vmf->vma->vm_file);
+}
+#else
+static vm_fault_t zbk_fault(struct vm_fault *vmf)
+{
+	return __zbk_fault(vmf, vmf->vma->vm_file);
+}
+#endif
+#endif
 
 static struct vm_operations_struct zbk_vma_ops = {
 	.open = zbk_open,
