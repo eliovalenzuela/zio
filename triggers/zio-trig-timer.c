@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/version.h>
 
 #include <linux/zio.h>
 #include <linux/zio-sysfs.h>
@@ -111,9 +112,8 @@ static struct zio_sysfs_operations ztt_s_ops = {
 };
 
 /* This runs when the timer expires */
-static void ztt_fn(unsigned long arg)
+static void __ztt_fn(struct zio_ti *ti)
 {
-	struct zio_ti *ti = (void *)arg;
 	struct ztt_instance *ztt;
 
 	zio_arm_trigger(ti);
@@ -125,6 +125,20 @@ static void ztt_fn(unsigned long arg)
 	ztt->next_run += ztt->period;
 	mod_timer(&ztt->timer, ztt->next_run);
 }
+
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
+static void ztt_fn(unsigned long arg)
+{
+	struct zio_ti *ti = (void *)arg;
+	__ztt_fn(ti);
+}
+#else
+static void ztt_fn(struct timer_list *t)
+{
+	struct ztt_instance *ztt = from_timer(ztt, t, timer);
+	__ztt_fn(&ztt->ti);
+}
+#endif
 
 /*
  * The trigger operations are the core of a trigger type
@@ -159,8 +173,12 @@ static struct zio_ti *ztt_create(struct zio_trigger_type *trig,
 	ti->cset = cset;
 
 	/* Fill own fields */
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	setup_timer(&ztt->timer, ztt_fn,
 		    (unsigned long)(&ztt->ti));
+#else
+	timer_setup(&ztt->timer, ztt_fn, 0);
+#endif
 	ztt->period = msecs_to_jiffies(ztt_ext_attr[0].value);
 	ztt->phase = msecs_to_jiffies(ztt_ext_attr[1].value);
 	ztt_start_timer(ztt);

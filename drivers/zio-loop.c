@@ -15,12 +15,21 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE
 #include <linux/sched.h>
+#else
+#include <linux/sched/signal.h>
+#endif
 #include <linux/slab.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/stringify.h>
+#if KERNEL_VERSION(4, 14, 0) > LINUX_VERSION_CODE
 #include <asm/uaccess.h>
+#else
+#include <linux/uaccess.h>
+#endif
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
