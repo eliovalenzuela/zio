@@ -10,6 +10,7 @@
 #include <linux/usb.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/version.h>
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
@@ -144,9 +145,8 @@ static void zvmk80xx_start_timer(struct zvmk80xx_cset *zvmk80xx_cset)
  *
  * This runs when the timer expires and on raw_io
  */
-static void zvmk80xx_send_urb(unsigned long arg)
+static void __zvmk80xx_send_urb(struct zvmk80xx_cset *zvmk80xx_cset)
 {
-	struct zvmk80xx_cset *zvmk80xx_cset = (void *)arg;
 	struct zio_channel *chan;
 	uint8_t *data, *buf;
 	unsigned int sent, nsample;
@@ -195,6 +195,22 @@ static void zvmk80xx_send_urb(unsigned long arg)
 		zvmk80xx_start_timer(zvmk80xx_cset);
 }
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
+static void zvmk80xx_send_urb(unsigned long arg)
+{
+	struct zvmk80xx_cset *zvmk80xx_cset = (void *)arg;
+
+	__zvmk80xx_send_urb(zvmk80xx_cset);
+}
+#else
+static void zvmk80xx_send_urb(struct timer_list *t)
+{
+	struct zvmk80xx_cset *zvmk80xx_cset =
+		from_timer(zvmk80xx_cset, t, timer);
+
+	__zvmk80xx_send_urb(zvmk80xx_cset);
+}
+#endif
 
 /* * * * * * * * * * * * * * * * * * * ZIO * * * * * * * * * * * * * * * * */
 
@@ -215,7 +231,7 @@ static int zvmk80xx_generic_raw_io(struct zio_cset *cset)
 	zvmk80xx_cset->period =
 			msecs_to_jiffies(cset->zattr_set.ext_zattr[0].value);
 	/* Program the next usb transfer */
-	zvmk80xx_send_urb((unsigned long)zvmk80xx_cset);
+	__zvmk80xx_send_urb(zvmk80xx_cset);
 
 	return -EAGAIN;
 }
@@ -241,8 +257,12 @@ static int zvmk80xx_init_cset(struct zio_cset *cset)
 		return -ENOMEM;
 	}
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	setup_timer(&zvmk80xx_cset->timer, zvmk80xx_send_urb,
 		    (unsigned long)zvmk80xx_cset);
+#else
+	timer_setup(&zvmk80xx_cset->timer, zvmk80xx_send_urb, 0);
+#endif
 
 	switch (cset->index) {
 	case 0: /* digital input */
