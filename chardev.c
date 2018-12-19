@@ -13,7 +13,12 @@
 #include <linux/mm.h>
 #include <linux/mutex.h>
 #include <linux/poll.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE
 #include <linux/sched.h>
+#else
+#include <linux/sched/signal.h>
+#endif
 #include <linux/uaccess.h>
 
 #include <linux/zio.h>

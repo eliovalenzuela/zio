@@ -8,7 +8,12 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE
 #include <linux/sched.h>
+#else
+#include <linux/sched/signal.h>
+#endif
 #include <linux/list.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
