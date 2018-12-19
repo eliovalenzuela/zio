@@ -25,7 +25,11 @@
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/stringify.h>
+#if KERNEL_VERSION(4, 14, 0) > LINUX_VERSION_CODE
 #include <asm/uaccess.h>
+#else
+#include <linux/uaccess.h>
+#endif
 
 #include <linux/zio.h>
 #include <linux/zio-buffer.h>
