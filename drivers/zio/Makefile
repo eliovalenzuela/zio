@@ -16,6 +16,14 @@ ZIO_VERSION += -D__ZIO_PATCH_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f
 export GIT_VERSION
 export ZIO_VERSION
 
+CONFIG_ZIO_DEVICES ?= m
+CONFIG_ZIO_BUFFERS ?= m
+CONFIG_ZIO_TRIGGERS ?= m
+
+export CONFIG_ZIO_DEVICES
+export CONFIG_ZIO_BUFFERS
+export CONFIG_ZIO_TRIGGERS
+
 all: modules
 
 modules coccicheck modules_install:

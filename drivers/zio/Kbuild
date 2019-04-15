@@ -9,9 +9,9 @@ CONFIG_ZIO_SNIFF_DEV:=y
 zio-$(CONFIG_ZIO_SNIFF_DEV) += sniff-dev.o
 
 obj-m = zio.o
-obj-m += devices/
-obj-m += buffers/
-obj-m += triggers/
+obj-$(CONFIG_ZIO_DEVICES) += devices/
+obj-$(CONFIG_ZIO_BUFFERS) += buffers/
+obj-$(CONFIG_ZIO_TRIGGERS) += triggers/
 
 # src is defined byt the kernel Makefile, but we want to use it also in our
 # local Makefile (tools, lib)
