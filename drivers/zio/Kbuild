@@ -9,7 +9,7 @@ CONFIG_ZIO_SNIFF_DEV:=y
 zio-$(CONFIG_ZIO_SNIFF_DEV) += sniff-dev.o
 
 obj-m = zio.o
-obj-m += drivers/
+obj-m += devices/
 obj-m += buffers/
 obj-m += triggers/
 
@@ -27,6 +27,6 @@ endif
 ccflags-y += -DADDITIONAL_VERSIONS="$(SUBMODULE_VERSIONS)"
 
 # WARNING: the line below doesn't work in-kernel if you compile with O=
-ccflags-y += -I$(src)/include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
+ccflags-y += -I$(src)/../../include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
 ccflags-y += $(ZIO_VERSION)
 ccflags-$(CONFIG_ZIO_DEBUG) += -DDEBUG

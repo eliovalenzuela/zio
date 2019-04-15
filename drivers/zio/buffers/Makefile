@@ -7,7 +7,7 @@ endif
 
 ccflags-y += -DADDITIONAL_VERSIONS="$(SUBMODULE_VERSIONS)"
 
-ccflags-y += -I$(src)/../include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
+ccflags-y += -I$(src)/../../../include/ -DGIT_VERSION=\"$(GIT_VERSION)\"
 ccflags-$(CONFIG_ZIO_DEBUG) += -DDEBUG
 
 # zio-buf-kmalloc.o is now part of zio-core
