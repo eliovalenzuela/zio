@@ -3,7 +3,8 @@
 REPO_PARENT ?= ../../../
 -include $(REPO_PARENT)/parent_common.mk
 
-LINUX ?= /lib/modules/$(shell uname -r)/build
+KVERSION ?= $(shell uname -r)
+LINUX ?= /lib/modules/$(KVERSION)/build
 
 GIT_VERSION := $(shell git describe --dirty --long --tags)
 
