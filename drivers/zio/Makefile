@@ -6,12 +6,12 @@ REPO_PARENT ?= ../../../
 KVERSION ?= $(shell uname -r)
 LINUX ?= /lib/modules/$(KVERSION)/build
 
-GIT_VERSION := $(shell git describe --dirty --long --tags)
+GIT_VERSION := $(shell git describe --dirty --long --tags | grep -o -E "[^v]*")
 
 # Extract major, minor and patch number
-ZIO_VERSION := -D__ZIO_MAJOR_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 2 | cut -d '.' -f 1; )
-ZIO_VERSION += -D__ZIO_MINOR_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 2 | cut -d '.' -f 2; )
-ZIO_VERSION += -D__ZIO_PATCH_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 3)
+ZIO_VERSION := -D__ZIO_MAJOR_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 1 | cut -d '.' -f 1; )
+ZIO_VERSION += -D__ZIO_MINOR_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 1 | cut -d '.' -f 2; )
+ZIO_VERSION += -D__ZIO_PATCH_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f 1 | cut -d '.' -f 3; )
 
 export GIT_VERSION
 export ZIO_VERSION
