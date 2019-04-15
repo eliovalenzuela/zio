@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: Unlicense
+/*
+ * Copyright 2011-2019 CERN
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ */
+
 /*
  * Simple program that cats one zio device to stdout
  */

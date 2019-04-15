@@ -1,9 +1,10 @@
 # include parent_common.mk for buildsystem's defines
 # It allows you to inherit an environment configuration from larger project
-REPO_PARENT ?= ..
+REPO_PARENT ?= ../../../
 -include $(REPO_PARENT)/parent_common.mk
 
-LINUX ?= /lib/modules/$(shell uname -r)/build
+KVERSION ?= $(shell uname -r)
+LINUX ?= /lib/modules/$(KVERSION)/build
 
 GIT_VERSION := $(shell git describe --dirty --long --tags)
 
@@ -15,21 +16,15 @@ ZIO_VERSION += -D__ZIO_PATCH_VERSION=$(shell echo $(GIT_VERSION) | cut -d '-' -f
 export GIT_VERSION
 export ZIO_VERSION
 
-all: modules tools
+CONFIG_ZIO_DEVICES ?= m
+CONFIG_ZIO_BUFFERS ?= m
+CONFIG_ZIO_TRIGGERS ?= m
 
-modules:
-	$(MAKE) -C drivers/zio M=$(shell /bin/pwd)
+export CONFIG_ZIO_DEVICES
+export CONFIG_ZIO_BUFFERS
+export CONFIG_ZIO_TRIGGERS
 
+all: modules
 
-.PHONY: tools
-
-tools:
-	$(MAKE) -C tools M=$(shell /bin/pwd)
-
-# this make clean is ugly, I'm aware...
-clean:
-	rm -rf `find . -name \*.o -o -name \*.ko -o -name \*~ `
-	rm -rf `find . -name Module.\* -o -name \*.mod.c`
-	rm -rf `find . -name \*.ko.cmd -o -name \*.o.cmd`
-	rm -rf .tmp_versions modules.order
-	$(MAKE) -C tools clean
+modules coccicheck modules_install:
+	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd) $@

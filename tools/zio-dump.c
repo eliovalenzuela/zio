@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: Unlicense
+/*
+ * Copyright 2011-2019 CERN
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ * Author: Federico Vaga <federico.vaga@gmail.com>
+ */
+
 /*
  * Trivial utility that reports data from ZIO input channels
  */
