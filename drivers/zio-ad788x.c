@@ -1,4 +1,8 @@
-/* Federico Vaga for CERN, 2011, GNU GPLv2 or later */
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2011-2019 CERN
+ * Author: Federico Vaga <federico.vaga@gmail.com>
+ */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>

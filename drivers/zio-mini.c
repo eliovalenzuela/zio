@@ -1,4 +1,8 @@
-/* Alessandro Rubini, 2012, public domain */
+// SPDX-License-Identifier: Unlicense
+/*
+ * Copyright 2011-2019 CERN
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ */
 
 /*
  * A minimal device: one input channel only: returns an 8-byte sample

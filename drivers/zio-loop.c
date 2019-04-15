@@ -1,4 +1,8 @@
-/* Alessandro Rubini for CERN, 2012, GNU GPLv2 or later */
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2012-2019 CERN
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ */
 
 /*
  * Simple loop device, that allows testing with the I/O flows, triggers etc.

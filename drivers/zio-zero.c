@@ -1,4 +1,9 @@
-/* Federico Vaga for CERN, 2011, GNU GPLv2 or later */
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2011-2019 CERN
+ * Author: Federico Vaga <federico.vaga@gmail.com>
+ */
+
 /*
  * zio-zero is a simple zio driver, with both input and output.  The
  *  channels are completely software driven. The input channels fill

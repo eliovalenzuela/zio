@@ -1,4 +1,8 @@
-/* Alessandro Rubini for CERN, 2011, GNU GPLv2 or later */
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2011-2019 CERN
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ */
 
 /*
  * This is a kmalloc-based buffer for the ZIO framework. It is used both

@@ -1,4 +1,8 @@
-/* Alessandro Rubini for CERN, 2013, GNU GPLv2 or later */
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2013-2019 CERN
+ * Author: Alessandro Rubini <rubini@gnudd.com>
+ */
 
 /*
  * This is a simple DTC (digital to time converter). It just sends out
