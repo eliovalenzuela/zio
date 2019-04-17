@@ -26,5 +26,5 @@ export CONFIG_ZIO_TRIGGERS
 
 all: modules
 
-modules coccicheck modules_install:
+modules coccicheck modules_install clean:
 	$(MAKE) -C $(LINUX) M=$(shell /bin/pwd) $@
