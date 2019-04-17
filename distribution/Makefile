@@ -30,18 +30,13 @@ dkms-src: dkms-tree
 
 	@cp $(TOP_DIR)/distribution/dkms.conf $($@_dir)
 	@cp $(TOP_DIR)/distribution/module-symvers-save $($@_dir)
-	@cp $(TOP_DIR)/drivers/zio/buffers/zio-buf-kmalloc.c $($@_dir)/buffers/
-	@cp $(TOP_DIR)/drivers/zio/triggers/zio-trig-user.c $($@_dir)/triggers/
+	@$(MAKE) -C $(TOP_DIR)/drivers/zio/ clean
 	@cp -a $(TOP_DIR)/include $($@_dir)
-	@cp $(TOP_DIR)/drivers/zio/*.[ch] $($@_dir)
-	@cp $(TOP_DIR)/drivers/zio/Makefile $($@_dir)
-	@cp $(TOP_DIR)/drivers/zio/Kbuild $($@_dir)
+	@cp -a $(TOP_DIR)/drivers/zio/* $($@_dir)
 
 	@cp $(TOP_DIR)/LICENSES/GPL-2.0-or-later.txt $($@_dir)/LICENSE
 	@sed -r -i -e "s/^GIT_VERSION\s:=\s.*/GIT_VERSION = $(VERSION)/" $($@_dir)/Makefile
-	@sed -r -i -e "s/^DKMS\s[?]=\s0/DKMS ?= 1/" $($@_dir)/Makefile
-	@sed -r -i -e "s/^obj-[$$][(]CONFIG.*//" $($@_dir)/Kbuild
-	@sed -r -i -e "s/\.\.\/\.\.\/include/include/" $($@_dir)/Kbuild
+	@sed -r -i -e "s/\.\.\/\.\.\/include/include/" $($@_dir)/Kbuild $($@_dir)/devices/Makefile $($@_dir)/buffers/Makefile $($@_dir)/triggers/Makefile
 
 	@sed -r -i -e "s/@PKGNAME@/$(DRIVER_NAME)/g" -e "s/@PKGVER@/$(VERSION)/g" $($@_dir)/dkms.conf
 
