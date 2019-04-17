@@ -29,6 +29,7 @@ dkms-src: dkms-tree
 	@mkdir -p $($@_dir)/triggers
 
 	@cp $(TOP_DIR)/distribution/dkms.conf $($@_dir)
+	@cp $(TOP_DIR)/distribution/module-symvers-save $($@_dir)
 	@cp $(TOP_DIR)/drivers/zio/buffers/zio-buf-kmalloc.c $($@_dir)/buffers/
 	@cp $(TOP_DIR)/drivers/zio/triggers/zio-trig-user.c $($@_dir)/triggers/
 	@cp -a $(TOP_DIR)/include $($@_dir)
@@ -42,8 +43,7 @@ dkms-src: dkms-tree
 	@sed -r -i -e "s/^obj-[$$][(]CONFIG.*//" $($@_dir)/Kbuild
 	@sed -r -i -e "s/\.\.\/\.\.\/include/include/" $($@_dir)/Kbuild
 
-	@sed -r -i -e "s/@PKGNAME@/$(DRIVER_NAME)/" $($@_dir)/dkms.conf
-	@sed -r -i -e "s/@PKGVER@/$(VERSION)/" $($@_dir)/dkms.conf
+	@sed -r -i -e "s/@PKGNAME@/$(DRIVER_NAME)/g" -e "s/@PKGVER@/$(VERSION)/g" $($@_dir)/dkms.conf
 
 
 dkms-add: dkms-src
